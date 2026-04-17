@@ -39,7 +39,7 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <Logo size="md" variant="dark" />
+          <Logo size="lg" variant="dark" />
         </div>
 
         {/* Tab toggle */}
