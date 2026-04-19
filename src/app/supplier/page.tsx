@@ -3,15 +3,8 @@
 import Link from 'next/link';
 import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowRight, Plus } from 'lucide-react';
 import { useSupplier } from '@/lib/supplier-context';
-import { orders } from '@/lib/mock-data';
+import { LocalOrdersPanel } from '@/components/shared/LocalOrdersPanel';
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  pending:    { label: 'Pendiente',   color: '#F97316' },
-  processing: { label: 'Procesando',  color: '#3B82F6' },
-  shipped:    { label: 'Enviado',     color: '#8B5CF6' },
-  delivered:  { label: 'Entregado',   color: '#10B981' },
-  returned:   { label: 'Devuelto',    color: '#EF4444' },
-};
 
 export default function SupplierDashboard() {
   const { inventory, profile, lowStockCount } = useSupplier();
@@ -92,33 +85,7 @@ export default function SupplierDashboard() {
         </div>
 
         {/* Recent orders */}
-        <div className="bg-white border border-[#EDEBE8] rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-[#0A0A0A]">Órdenes Recientes</h2>
-          </div>
-          <div className="space-y-2">
-            {orders.slice(0, 5).map((order) => {
-              const s = statusLabels[order.status];
-              return (
-                <div key={order.id} className="flex items-center justify-between py-2 border-b border-[#F7F6F5] last:border-0">
-                  <div>
-                    <p className="text-sm font-body font-medium text-[#0A0A0A]">{order.id}</p>
-                    <p className="text-xs text-[#8F8780] font-body">{order.customerName}</p>
-                  </div>
-                  <div className="text-right">
-                    <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: `${s.color}18`, color: s.color }}
-                    >
-                      {s.label}
-                    </span>
-                    <p className="text-xs text-[#8F8780] font-body mt-0.5">${order.total}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <LocalOrdersPanel title="Pedidos Recientes" />
       </div>
 
       {/* Quick actions */}
