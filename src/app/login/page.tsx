@@ -2,16 +2,40 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useGSAP } from '@gsap/react';
 import { gsap } from '@/lib/gsap';
-import { Eye, EyeOff, User } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 
+const MOCK_USERS = [
+  { email: 'admin@mariasclub.com',          password: 'admin123',          role: 'admin',         redirect: '/admin' },
+  { email: 'proveedor@mariasclub.com',       password: 'proveedor123',      role: 'proveedor',     redirect: '/supplier' },
+  { email: 'transportista@mariasclub.com',   password: 'transportista123',  role: 'transportista', redirect: '/transporter' },
+  { email: 'repartidor@mariasclub.com',      password: 'repartidor123',     role: 'repartidor',    redirect: '/repartidor' },
+  { email: 'cliente@mariasclub.com',         password: 'cliente123',        role: 'cliente',       redirect: '/shop' },
+];
+
 export default function LoginPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+    if (user) {
+      setError('');
+      router.push(user.redirect);
+    } else {
+      setError('Correo o contraseña incorrectos.');
+    }
+  };
 
   /* ── Mount animation ──────────────────────────────────────── */
   useGSAP(() => {
@@ -66,7 +90,7 @@ export default function LoginPage() {
         <div className="bg-white border border-[#E0E0E0] p-6">
           <div ref={formRef}>
             {tab === 'login' ? (
-              <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+              <form className="space-y-4" onSubmit={handleLogin}>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-[#555555] mb-1.5">
                     Correo electrónico
@@ -74,6 +98,8 @@ export default function LoginPage() {
                   <input
                     type="email"
                     placeholder="tucorreo@ejemplo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full h-11 border border-[#E0E0E0] px-4 text-sm text-[#222222] placeholder-[#B8B2A8] bg-white focus:outline-none focus:border-[#222222] transition-colors"
                   />
                 </div>
@@ -85,6 +111,8 @@ export default function LoginPage() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       className="w-full h-11 border border-[#E0E0E0] px-4 pr-11 text-sm text-[#222222] placeholder-[#B8B2A8] bg-white focus:outline-none focus:border-[#222222] transition-colors"
                     />
                     <button
@@ -101,6 +129,9 @@ export default function LoginPage() {
                     </Link>
                   </div>
                 </div>
+                {error && (
+                  <p className="text-xs text-[#C0392B] font-medium">{error}</p>
+                )}
                 <button
                   type="submit"
                   className="w-full h-12 bg-[#222222] text-white text-[11px] font-bold tracking-[0.1em] uppercase hover:bg-black transition-colors mt-2"
