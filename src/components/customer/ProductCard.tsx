@@ -7,6 +7,7 @@ import { useGSAP } from '@gsap/react';
 import { gsap } from '@/lib/gsap';
 import { ShoppingBag, Heart } from 'lucide-react';
 import { Product } from '@/lib/mock-data';
+import { useCart } from '@/lib/cart-context';
 
 interface ProductCardProps {
   product: Product;
@@ -23,6 +24,7 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
   const cardRef = useRef<HTMLElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const [saved, setSaved] = useState(false);
+  const { addItem } = useCart();
 
   useGSAP(() => {
     const card = cardRef.current;
@@ -89,7 +91,10 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
 
         {/* Add to cart — slides up on hover */}
         <div ref={actionsRef} className="absolute bottom-0 left-0 right-0">
-          <button className="w-full h-10 bg-[#222222] text-white text-[11px] font-bold tracking-[0.08em] uppercase hover:bg-[#000000] transition-colors flex items-center justify-center gap-1.5">
+          <button
+            onClick={(e) => { e.preventDefault(); addItem(product); }}
+            className="w-full h-10 bg-[#222222] text-white text-[11px] font-bold tracking-[0.08em] uppercase hover:bg-[#000000] transition-colors flex items-center justify-center gap-1.5"
+          >
             <ShoppingBag className="h-3.5 w-3.5" />
             Agregar al Carrito
           </button>

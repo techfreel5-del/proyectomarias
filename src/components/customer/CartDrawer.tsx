@@ -1,32 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { X, ShoppingBag, Plus, Minus, Trash2 } from 'lucide-react';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-
-const mockCartItems = [
-  {
-    id: '1',
-    name: 'Blazer Signature Invierno',
-    price: 99.00,
-    originalPrice: 149.00,
-    qty: 1,
-    size: 'M',
-    color: 'Negro',
-    image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=200&q=70',
-  },
-  {
-    id: '2',
-    name: 'Pro Blender 1200W',
-    price: 189.00,
-    qty: 2,
-    size: null,
-    color: null,
-    image: 'https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=200&q=70',
-  },
-];
+import { useCart } from '@/lib/cart-context';
 
 interface CartDrawerProps {
   open: boolean;
@@ -34,22 +11,14 @@ interface CartDrawerProps {
 }
 
 export function CartDrawer({ open, onClose }: CartDrawerProps) {
-  const [items, setItems] = useState(mockCartItems);
+  const { items, updateQty, total, totalQty } = useCart();
 
-  const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
-
-  const updateQty = (id: string, delta: number) => {
-    setItems((prev) =>
-      prev
-        .map((item) => item.id === id ? { ...item, qty: item.qty + delta } : item)
-        .filter((item) => item.qty > 0)
-    );
-  };
+  if (!open) return null;
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent side="right" className="w-full sm:w-[400px] p-0 flex flex-col bg-white border-l border-[#E0E0E0]">
+    <>
+      {/* Drawer panel */}
+      <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[400px] bg-white border-l border-[#E0E0E0] flex flex-col shadow-2xl">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E0E0E0]">
@@ -82,12 +51,12 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
               </button>
             </div>
           ) : (
-            items.map((item) => (
-              <div key={item.id} className="flex gap-3.5">
+            items.map(({ product, qty }) => (
+              <div key={product.id} className="flex gap-3.5">
                 <div className="relative w-20 h-24 flex-shrink-0 bg-[#F2F2F2] overflow-hidden">
                   <Image
-                    src={item.image}
-                    alt={item.name}
+                    src={product.images[0]}
+                    alt={product.name}
                     fill
                     className="object-cover"
                     sizes="80px"
@@ -95,30 +64,30 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-body font-medium text-[#222222] line-clamp-2 mb-0.5">
-                    {item.name}
+                    {product.name}
                   </p>
-                  {item.size && (
+                  {product.sizes.length > 0 && (
                     <p className="text-xs text-[#828282]">
-                      Talla: {item.size} · {item.color}
+                      {product.colors[0]?.name ?? ''}
                     </p>
                   )}
                   <div className="flex items-center justify-between mt-2.5">
                     {/* Qty controls */}
                     <div className="flex items-center border border-[#E0E0E0]">
                       <button
-                        onClick={() => updateQty(item.id, -1)}
+                        onClick={() => updateQty(product.id, -1)}
                         className="w-7 h-7 flex items-center justify-center text-[#555555] hover:bg-[#F2F2F2] transition-colors"
                         aria-label="Reducir cantidad"
                       >
-                        {item.qty === 1
+                        {qty === 1
                           ? <Trash2 className="h-3 w-3 text-[#E4002B]" />
                           : <Minus className="h-3 w-3" />}
                       </button>
                       <span className="w-7 text-center text-xs font-semibold text-[#222222]">
-                        {item.qty}
+                        {qty}
                       </span>
                       <button
-                        onClick={() => updateQty(item.id, 1)}
+                        onClick={() => updateQty(product.id, 1)}
                         className="w-7 h-7 flex items-center justify-center text-[#555555] hover:bg-[#F2F2F2] transition-colors"
                         aria-label="Aumentar cantidad"
                       >
@@ -128,11 +97,11 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                     {/* Price */}
                     <div className="text-right">
                       <p className="text-sm font-bold text-[#222222]">
-                        ${(item.price * item.qty).toFixed(2)}
+                        ${(product.price * qty).toFixed(2)}
                       </p>
-                      {item.originalPrice && (
+                      {product.originalPrice && (
                         <p className="text-xs text-[#828282] line-through">
-                          ${(item.originalPrice * item.qty).toFixed(2)}
+                          ${(product.originalPrice * qty).toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -166,7 +135,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
             </button>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </div>
+    </>
   );
 }

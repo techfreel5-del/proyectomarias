@@ -9,6 +9,7 @@ import { gsap, ScrollTrigger } from '@/lib/gsap';
 import { Logo } from '@/components/brand/Logo';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { CartDrawer } from '@/components/customer/CartDrawer';
+import { useCart } from '@/lib/cart-context';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -22,7 +23,7 @@ const navLinks = [
 
 export function Header() {
   const pathname = usePathname();
-  const [cartCount] = useState(2);
+  const { totalQty } = useCart();
   const [cartOpen, setCartOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
@@ -154,9 +155,9 @@ export function Header() {
             className="relative w-9 h-9 inline-flex items-center justify-center text-[#333333] hover:text-[#222222] hover:bg-[#F2F2F2] transition-colors"
           >
             <ShoppingBag className="h-4 w-4" />
-            {cartCount > 0 && (
+            {totalQty > 0 && (
               <span className="absolute -top-0.5 -right-0.5 bg-[#222222] text-white text-[9px] font-black h-3.5 w-3.5 flex items-center justify-center">
-                {cartCount}
+                {totalQty}
               </span>
             )}
           </button>
@@ -203,7 +204,7 @@ export function Header() {
                     onClick={() => { handleSheetChange(false); setCartOpen(true); }}
                     className="flex w-full h-11 border border-[#E0E0E0] text-[#555555] text-[11px] font-medium tracking-[0.08em] uppercase items-center justify-center gap-2 hover:border-[#222222] hover:text-[#222222] transition-colors"
                   >
-                    <ShoppingBag className="h-3.5 w-3.5" /> Carrito ({cartCount})
+                    <ShoppingBag className="h-3.5 w-3.5" /> Carrito ({totalQty})
                   </button>
                   <Link
                     href="/login"
