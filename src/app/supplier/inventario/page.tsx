@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Plus, Search, Pencil, Trash2, X, Check, AlertTriangle, Package } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Search, Pencil, Trash2, X, Check, AlertTriangle, Package, ScanLine, LayoutGrid } from 'lucide-react';
 import { useSupplier, InventoryProduct } from '@/lib/supplier-context';
 
 const CATEGORIES = ['Fashion', 'Appliances', 'Electronics', 'Sports', 'Coffee', 'Hogar', 'Otro'];
@@ -71,7 +72,7 @@ export default function InventarioPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold text-[#0A0A0A]">Gestión de Inventario</h1>
           <p className="text-xs text-[#8F8780] font-body mt-0.5">{inventory.length} productos registrados</p>
@@ -84,6 +85,34 @@ export default function InventarioPage() {
           <Plus className="h-4 w-4" />
           Agregar Producto
         </button>
+      </div>
+
+      {/* AI upload shortcuts */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        <Link
+          href="/supplier/inventario/alta-remision"
+          className="flex items-center gap-4 p-4 bg-white border border-[#EDEBE8] rounded-2xl hover:border-[#D9D5CF] hover:shadow-sm transition-all group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+            <ScanLine className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm text-[#0A0A0A]">Alta por Remisión</p>
+            <p className="text-xs text-[#8F8780] font-body">Sube una foto de factura · IA extrae los productos</p>
+          </div>
+        </Link>
+        <Link
+          href="/supplier/inventario/alta-masiva"
+          className="flex items-center gap-4 p-4 bg-white border border-[#EDEBE8] rounded-2xl hover:border-[#D9D5CF] hover:shadow-sm transition-all group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-100 transition-colors">
+            <LayoutGrid className="h-5 w-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm text-[#0A0A0A]">Alta Masiva por Foto</p>
+            <p className="text-xs text-[#8F8780] font-body">Foto del stock del día · IA identifica cada variante</p>
+          </div>
+        </Link>
       </div>
 
       {/* Filters */}
