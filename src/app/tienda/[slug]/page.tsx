@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { ShoppingBag, Search, Phone, Mail, MapPin, ShoppingCart, Plus, X, Minus } from 'lucide-react';
-import { SupplierProfile, InventoryProduct } from '@/lib/supplier-context';
+import { SupplierProfile, InventoryProduct, DEFAULT_STORE_CONFIG } from '@/lib/supplier-context';
+import { SupplierCheckoutModal } from '@/components/supplier/SupplierCheckoutModal';
 
 const LS_PROFILE = 'mc_supplier_profile';
 const LS_INVENTORY = 'mc_supplier_inventory';
@@ -15,6 +16,7 @@ export default function PublicStorePage() {
   const [inventory, setInventory] = useState<InventoryProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
 
@@ -22,7 +24,17 @@ export default function PublicStorePage() {
     try {
       const p = localStorage.getItem(LS_PROFILE);
       const inv = localStorage.getItem(LS_INVENTORY);
-      if (p) setProfile(JSON.parse(p));
+      if (p) {
+        const parsed = JSON.parse(p);
+        setProfile({
+          ...parsed,
+          storeConfig: {
+            ...DEFAULT_STORE_CONFIG,
+            ...(parsed.storeConfig ?? {}),
+            bankInfo: { ...DEFAULT_STORE_CONFIG.bankInfo, ...(parsed.storeConfig?.bankInfo ?? {}) },
+          },
+        });
+      }
       if (inv) setInventory(JSON.parse(inv));
     } catch { /* ignore */ }
   }, []);
@@ -210,6 +222,16 @@ export default function PublicStorePage() {
         </div>
       </footer>
 
+      {/* Checkout modal */}
+      {checkoutOpen && (
+        <SupplierCheckoutModal
+          cart={cart}
+          profile={profile}
+          onClose={() => setCheckoutOpen(false)}
+          onSuccess={() => { setCart([]); setCheckoutOpen(false); setCartOpen(false); }}
+        />
+      )}
+
       {/* Cart drawer */}
       {cartOpen && (
         <div className="fixed inset-0 z-50">
@@ -256,6 +278,7 @@ export default function PublicStorePage() {
                   <span className="text-xl font-black" style={{ color: profile.brandColor }}>${cartTotal.toFixed(2)}</span>
                 </div>
                 <button
+                  onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}
                   className="w-full py-3 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: profile.brandColor }}
                 >

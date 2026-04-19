@@ -25,6 +25,9 @@ export interface LocalOrder {
   paymentMethod: string;
   isAdvance: boolean;
   amountPaid: number;
+  supplierSlug?: string;
+  shippingMethod?: string;
+  shippingCost?: number;
 }
 
 const KEY = 'mc_orders';

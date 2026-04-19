@@ -3,7 +3,31 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { posProducts } from './mock-data';
 
-/* ── Types ────────────────────────────────────��─────────────── */
+/* ── Types ────────────────────────────────────────────────── */
+
+export type ShippingMethodType = 'pickup' | 'centro' | 'paqueteria';
+
+export interface ShippingMethod {
+  type: ShippingMethodType;
+  label: string;
+  enabled: boolean;
+  cost: number;          // 0 = gratis
+  description: string;
+}
+
+export interface BankInfo {
+  beneficiary: string;
+  bank: string;
+  accountNumber: string;
+  clabe: string;
+  concept: string;
+}
+
+export interface StoreConfig {
+  shippingMethods: ShippingMethod[];
+  bankInfo: BankInfo;
+  whatsappNumber: string;  // formato: 5213511234567
+}
 
 export interface SupplierProfile {
   storeName: string;
@@ -17,6 +41,7 @@ export interface SupplierProfile {
   address: string;
   bannerUrl: string;
   showPoweredBy: boolean;
+  storeConfig: StoreConfig;
 }
 
 export interface InventoryProduct {
@@ -45,6 +70,22 @@ interface SupplierContextType {
 
 /* ── Defaults ───────────────────────────────────────────────── */
 
+export const DEFAULT_STORE_CONFIG: StoreConfig = {
+  shippingMethods: [
+    { type: 'pickup',     label: 'Recoger en tienda',            enabled: true,  cost: 0,   description: 'Sin costo adicional' },
+    { type: 'centro',     label: 'Punto centro de distribución', enabled: true,  cost: 50,  description: 'Entrega en punto MARIASCLUB' },
+    { type: 'paqueteria', label: 'Paquetería',                   enabled: false, cost: 120, description: 'Envío a domicilio por paquetería' },
+  ],
+  bankInfo: {
+    beneficiary: '',
+    bank: '',
+    accountNumber: '',
+    clabe: '',
+    concept: 'Pedido tienda online',
+  },
+  whatsappNumber: '',
+};
+
 const DEFAULT_PROFILE: SupplierProfile = {
   storeName: 'Proveedor Zamora S.A.',
   slug: 'proveedor-zamora',
@@ -57,6 +98,7 @@ const DEFAULT_PROFILE: SupplierProfile = {
   address: 'Av. Morelos 245, Zamora, Michoacán',
   bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=70',
   showPoweredBy: true,
+  storeConfig: DEFAULT_STORE_CONFIG,
 };
 
 const DEFAULT_INVENTORY: InventoryProduct[] = posProducts.map((p) => ({
@@ -89,7 +131,15 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
     try {
       const savedProfile = localStorage.getItem(LS_PROFILE);
       const savedInventory = localStorage.getItem(LS_INVENTORY);
-      if (savedProfile) setProfile(JSON.parse(savedProfile));
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        // Merge defensivo para usuarios con perfil guardado sin storeConfig
+        setProfile({
+          ...DEFAULT_PROFILE,
+          ...parsed,
+          storeConfig: { ...DEFAULT_STORE_CONFIG, ...(parsed.storeConfig ?? {}), bankInfo: { ...DEFAULT_STORE_CONFIG.bankInfo, ...(parsed.storeConfig?.bankInfo ?? {}) } },
+        });
+      }
       if (savedInventory) setInventory(JSON.parse(savedInventory));
     } catch { /* ignore */ }
     setHydrated(true);
