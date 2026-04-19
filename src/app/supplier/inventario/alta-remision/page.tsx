@@ -64,7 +64,15 @@ export default function AltaRemisionPage() {
         body: JSON.stringify({ image: imageBase64, mimeType }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Error al analizar la imagen.'); setLoading(false); return; }
+      if (!res.ok) {
+        if (data.error === 'PENDIENTE_API') {
+          setError('PENDIENTE_API');
+        } else {
+          setError(data.error || 'Error al analizar la imagen.');
+        }
+        setLoading(false);
+        return;
+      }
       const extracted: ExtractedProduct[] = (data.products || []).map((p: ExtractedProduct) => ({
         ...p,
         sellPriceMarias: Math.round(p.unitPrice * 1.25 * 100) / 100,
@@ -178,12 +186,20 @@ export default function AltaRemisionPage() {
           </div>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
 
-          {error && (
+          {error === 'PENDIENTE_API' ? (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+              <p className="font-semibold text-amber-800 mb-1">⏳ Función próximamente disponible</p>
+              <p className="text-amber-700 font-body">
+                Esta función usa inteligencia artificial y requiere activar la integración con la API de IA.
+                Por ahora puedes agregar productos manualmente desde el inventario.
+              </p>
+            </div>
+          ) : error ? (
             <div className="mt-4 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
-          )}
+          ) : null}
 
           <div className="mt-6 p-4 bg-[#F7F6F5] rounded-xl text-sm text-[#6B6359] font-body">
             <p className="font-semibold text-[#0A0A0A] mb-1">¿Qué documentos funcionan?</p>

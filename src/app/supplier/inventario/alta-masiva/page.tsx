@@ -104,7 +104,7 @@ export default function AltaMasivaPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Error al analizar la imagen.');
+        setError(data.error === 'PENDIENTE_API' ? 'PENDIENTE_API' : (data.error || 'Error al analizar la imagen.'));
         setLoading(false);
         return;
       }
@@ -300,12 +300,20 @@ export default function AltaMasivaPage() {
             </div>
           </div>
 
-          {error && (
+          {error === 'PENDIENTE_API' ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+              <p className="font-semibold text-amber-800 mb-1">⏳ Función próximamente disponible</p>
+              <p className="text-amber-700 font-body">
+                Esta función usa inteligencia artificial y requiere activar la integración con la API de IA.
+                Por ahora puedes agregar productos manualmente desde el inventario.
+              </p>
+            </div>
+          ) : error ? (
             <div className="flex gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 font-body">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               {error}
             </div>
-          )}
+          ) : null}
 
           <button
             onClick={handleAnalyze}
@@ -435,7 +443,7 @@ export default function AltaMasivaPage() {
             </div>
           )}
 
-          {error && (
+          {error && error !== 'PENDIENTE_API' && (
             <div className="flex gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 font-body">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               {error}
