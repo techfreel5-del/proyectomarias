@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
 import { Playfair_Display, Inter } from 'next/font/google';
 import './globals.css';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
 import { SmoothScrollProvider } from '@/components/layout/SmoothScrollProvider';
-import { AnnouncementBar } from '@/components/layout/AnnouncementBar';
 import { CartProvider } from '@/lib/cart-context';
+import { ConditionalChrome } from '@/components/layout/ConditionalChrome';
 
 const playfair = Playfair_Display({
   variable: '--font-display',
@@ -40,12 +38,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#FAFAFA] text-[#0A0A0A]">
         <CartProvider>
           <SmoothScrollProvider>
-            <AnnouncementBar />
-            <Header />
-            <main className="pt-[88px]">
+            <ConditionalChrome>
               {children}
-            </main>
-            <Footer />
+            </ConditionalChrome>
           </SmoothScrollProvider>
         </CartProvider>
       </body>
