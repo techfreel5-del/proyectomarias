@@ -396,7 +396,7 @@ export function CatalogGrid({ products, categoryLabel = 'Todos los Productos' }:
     <div className="flex gap-8">
 
       {/* ── Desktop sidebar ───────────────────────────────────── */}
-      <aside className="w-64 flex-shrink-0 hidden lg:block">
+      <aside className="w-56 flex-shrink-0 hidden md:block">
         <div className="sticky top-24">
           <FilterPanel {...filterPanelProps} />
         </div>
@@ -404,7 +404,7 @@ export function CatalogGrid({ products, categoryLabel = 'Todos los Productos' }:
 
       {/* ── Mobile filter drawer ──────────────────────────────── */}
       {showMobileFilters && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/40"
@@ -459,7 +459,7 @@ export function CatalogGrid({ products, categoryLabel = 'Todos los Productos' }:
               {filteredProducts.length} productos
             </span>
             <button
-              className="lg:hidden flex items-center gap-1.5 h-8 px-3 border border-[#D9D5CF] text-xs font-body text-[#3D3732] hover:border-[#0A0A0A] hover:text-[#0A0A0A] transition-colors relative"
+              className="md:hidden flex items-center gap-1.5 h-8 px-3 border border-[#D9D5CF] text-xs font-body text-[#3D3732] hover:border-[#0A0A0A] hover:text-[#0A0A0A] transition-colors relative"
               onClick={() => setShowMobileFilters(true)}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />

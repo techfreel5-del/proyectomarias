@@ -34,9 +34,8 @@ export function Header() {
 
     if (!prefersReducedMotion) {
       gsap.from(headerRef.current, {
-        y: -100,
-        opacity: 0,
-        duration: 0.7,
+        y: -60,
+        duration: 0.6,
         ease: 'power3.out',
         delay: 0.1,
       });
