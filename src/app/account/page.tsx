@@ -2,39 +2,25 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { ShoppingBag, MapPin, RotateCcw, LogOut, ChevronRight, Package } from 'lucide-react';
-import { orders } from '@/lib/mock-data';
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pendiente',
-  processing: 'En proceso',
-  shipped: 'Enviado',
-  delivered: 'Entregado',
-  returned: 'Devuelto',
-};
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-[#FFF3CD] text-[#856404]',
-  processing: 'bg-[#CCE5FF] text-[#004085]',
-  shipped: 'bg-[#D4EDDA] text-[#155724]',
-  delivered: 'bg-[#D4EDDA] text-[#155724]',
-  returned: 'bg-[#F8D7DA] text-[#721C24]',
-};
+import { getOrders, subscribeOrders, LocalOrder, STATUS_LABELS, STATUS_COLORS } from '@/lib/orders-store';
 
 export default function AccountPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [myOrders, setMyOrders] = useState<LocalOrder[]>([]);
 
   useEffect(() => {
-    if (!user) router.replace('/login');
+    if (!user) { router.replace('/login'); return; }
+    // Load real orders from localStorage and subscribe to updates
+    const load = () => setMyOrders(getOrders().slice(0, 5));
+    load();
+    return subscribeOrders(load);
   }, [user, router]);
 
   if (!user) return null;
-
-  // Show first 3 mock orders as sample history
-  const myOrders = orders.slice(0, 3);
 
   const handleLogout = () => {
     logout();
@@ -89,30 +75,50 @@ export default function AccountPage() {
               Ver todos →
             </Link>
           </div>
-          <div className="divide-y divide-[#F2F2F2]">
-            {myOrders.map((order) => (
+
+          {myOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+              <Package className="h-8 w-8 text-[#D9D5CF]" />
+              <p className="text-sm text-[#8F8780]">Aún no tienes pedidos</p>
               <Link
-                key={order.id}
-                href={`/tracking/${order.id}`}
-                className="flex items-center justify-between px-5 py-4 hover:bg-[#FAFAFA] transition-colors group"
+                href="/shop"
+                className="text-[11px] font-bold uppercase tracking-wider text-[#00C9B1] hover:underline"
               >
-                <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-[#0A0A0A]">{order.id}</p>
-                  <p className="text-xs text-[#8F8780] truncate max-w-[200px]">{order.product}</p>
-                  <p className="text-[10px] text-[#B8B2A8]">{order.date}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 ${statusColors[order.status]}`}>
-                      {statusLabels[order.status]}
-                    </span>
-                    <p className="text-xs font-semibold text-[#0A0A0A] mt-1">${order.total.toFixed(2)}</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-[#C0BDB8] group-hover:text-[#222222] transition-colors" />
-                </div>
+                Ir a la tienda →
               </Link>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#F2F2F2]">
+              {myOrders.map((order) => {
+                const firstItem = order.items[0];
+                const itemSummary = order.items.length === 1
+                  ? firstItem.name
+                  : `${firstItem.name} +${order.items.length - 1} más`;
+                return (
+                  <Link
+                    key={order.id}
+                    href={`/tracking/${order.id}`}
+                    className="flex items-center justify-between px-5 py-4 hover:bg-[#FAFAFA] transition-colors group"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-sm font-semibold text-[#0A0A0A]">{order.id}</p>
+                      <p className="text-xs text-[#8F8780] truncate max-w-[200px]">{itemSummary}</p>
+                      <p className="text-[10px] text-[#B8B2A8]">{new Date(order.createdAt).toLocaleDateString('es-MX')}</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_COLORS[order.status]}`}>
+                          {STATUS_LABELS[order.status]}
+                        </span>
+                        <p className="text-xs font-semibold text-[#0A0A0A] mt-1">${order.total.toFixed(2)}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-[#C0BDB8] group-hover:text-[#222222] transition-colors" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Back to shop */}
