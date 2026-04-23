@@ -24,7 +24,17 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
   const cardRef = useRef<HTMLElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const [saved, setSaved] = useState(false);
+  const [added, setAdded] = useState(false);
   const { addItem } = useCart();
+
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const defaultColor = product.colors[0]?.name ?? '';
+    const defaultSize = product.sizes[0] ?? '';
+    addItem(product, defaultSize, defaultColor);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  };
 
   useGSAP(() => {
     const card = cardRef.current;
@@ -92,11 +102,13 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
         {/* Add to cart — slides up on hover */}
         <div ref={actionsRef} className="absolute bottom-0 left-0 right-0">
           <button
-            onClick={(e) => { e.preventDefault(); addItem(product); }}
-            className="w-full h-10 bg-[#222222] text-white text-[11px] font-bold tracking-[0.08em] uppercase hover:bg-[#000000] transition-colors flex items-center justify-center gap-1.5"
+            onClick={handleQuickAdd}
+            className={`w-full h-10 text-white text-[11px] font-bold tracking-[0.08em] uppercase transition-colors flex items-center justify-center gap-1.5 ${
+              added ? 'bg-[#00C9B1]' : 'bg-[#222222] hover:bg-[#000000]'
+            }`}
           >
             <ShoppingBag className="h-3.5 w-3.5" />
-            Agregar al Carrito
+            {added ? '¡Agregado!' : 'Agregar al Carrito'}
           </button>
         </div>
       </div>
