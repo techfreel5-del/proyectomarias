@@ -102,10 +102,15 @@ export default function TrackingPage() {
           <div className="bg-white border border-[#EDEBE8] rounded-2xl p-6 mb-4">
             <h3 className="font-semibold text-[#0A0A0A] mb-4">Detalles del pedido</h3>
             <div className="space-y-3">
-              {localOrder.items.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm font-body">
-                  <span className="text-[#6B6359]">{item.name} × {item.qty}</span>
-                  <span className="font-semibold">${(item.price * item.qty).toFixed(2)}</span>
+              {localOrder.items.map((item, idx) => (
+                <div key={`${item.id}-${idx}`} className="flex justify-between text-sm font-body">
+                  <div>
+                    <span className="text-[#6B6359]">{item.name} × {item.qty}</span>
+                    {(item.color || item.size) && (
+                      <p className="text-xs text-[#8F8780] mt-0.5">{[item.color, item.size].filter(Boolean).join(' · ')}</p>
+                    )}
+                  </div>
+                  <span className="font-semibold flex-shrink-0 ml-4">${(item.price * item.qty).toFixed(2)}</span>
                 </div>
               ))}
               <div className="border-t border-[#EDEBE8] pt-3 flex justify-between font-bold text-sm">

@@ -53,6 +53,8 @@ export function CheckoutStepper() {
           price: i.product.price,
           qty: i.qty,
           image: i.product.images[0] ?? '',
+          size: i.size,
+          color: i.color,
         })),
         total,
         paymentMethod,

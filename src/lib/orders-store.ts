@@ -8,6 +8,8 @@ export interface LocalOrderItem {
   price: number;
   qty: number;
   image: string;
+  size?: string;
+  color?: string;
 }
 
 export interface LocalOrder {

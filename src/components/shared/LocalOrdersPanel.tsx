@@ -84,7 +84,12 @@ export function LocalOrdersPanel({ title = 'Pedidos recientes', filterStatus, al
                   <span className="font-semibold text-[#0A0A0A]">Productos:</span>
                   <ul className="mt-1 space-y-0.5 ml-2">
                     {order.items.map((item, i) => (
-                      <li key={i}>{item.name} × {item.qty} — ${(item.price * item.qty).toFixed(2)}</li>
+                      <li key={i}>
+                        {item.name} × {item.qty} — ${(item.price * item.qty).toFixed(2)}
+                        {(item.color || item.size) && (
+                          <span className="text-[#8F8780] ml-1">({[item.color, item.size].filter(Boolean).join(' · ')})</span>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>
