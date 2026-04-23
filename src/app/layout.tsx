@@ -3,6 +3,7 @@ import { Playfair_Display, Inter } from 'next/font/google';
 import './globals.css';
 import { SmoothScrollProvider } from '@/components/layout/SmoothScrollProvider';
 import { CartProvider } from '@/lib/cart-context';
+import { AuthProvider } from '@/lib/auth-context';
 import { ConditionalChrome } from '@/components/layout/ConditionalChrome';
 
 const playfair = Playfair_Display({
@@ -36,13 +37,15 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${playfair.variable} ${inter.variable} antialiased`}>
       <body className="min-h-screen bg-[#FAFAFA] text-[#0A0A0A]">
-        <CartProvider>
-          <SmoothScrollProvider>
-            <ConditionalChrome>
-              {children}
-            </ConditionalChrome>
-          </SmoothScrollProvider>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <SmoothScrollProvider>
+              <ConditionalChrome>
+                {children}
+              </ConditionalChrome>
+            </SmoothScrollProvider>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

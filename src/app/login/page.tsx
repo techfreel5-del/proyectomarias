@@ -7,17 +7,19 @@ import { useGSAP } from '@gsap/react';
 import { gsap } from '@/lib/gsap';
 import { Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
+import { useAuth, type UserRole } from '@/lib/auth-context';
 
-const MOCK_USERS = [
-  { email: 'admin@mariasclub.com',          password: 'admin123',          role: 'admin',         redirect: '/admin' },
-  { email: 'proveedor@mariasclub.com',       password: 'proveedor123',      role: 'proveedor',     redirect: '/supplier' },
-  { email: 'transportista@mariasclub.com',   password: 'transportista123',  role: 'transportista', redirect: '/transporter' },
-  { email: 'repartidor@mariasclub.com',      password: 'repartidor123',     role: 'repartidor',    redirect: '/repartidor' },
-  { email: 'cliente@mariasclub.com',         password: 'cliente123',        role: 'cliente',       redirect: '/shop' },
+const MOCK_USERS: { email: string; password: string; role: UserRole; name: string; redirect: string }[] = [
+  { email: 'admin@mariasclub.com',          password: 'admin123',          role: 'admin',         name: 'Administrador',  redirect: '/admin' },
+  { email: 'proveedor@mariasclub.com',       password: 'proveedor123',      role: 'proveedor',     name: 'Proveedor',      redirect: '/supplier' },
+  { email: 'transportista@mariasclub.com',   password: 'transportista123',  role: 'transportista', name: 'Transportista',  redirect: '/transporter' },
+  { email: 'repartidor@mariasclub.com',      password: 'repartidor123',     role: 'repartidor',    name: 'Repartidor',     redirect: '/repartidor' },
+  { email: 'cliente@mariasclub.com',         password: 'cliente123',        role: 'cliente',       name: 'Cliente',        redirect: '/shop' },
 ];
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -28,10 +30,11 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = MOCK_USERS.find(u => u.email === email && u.password === password);
-    if (user) {
+    const found = MOCK_USERS.find(u => u.email === email && u.password === password);
+    if (found) {
       setError('');
-      router.push(user.redirect);
+      login({ email: found.email, role: found.role, name: found.name, redirect: found.redirect });
+      router.push(found.redirect);
     } else {
       setError('Correo o contraseña incorrectos.');
     }

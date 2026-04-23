@@ -2,14 +2,15 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { ShoppingBag, Search, Heart, Menu, X, User } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { ShoppingBag, Search, Heart, Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useGSAP } from '@gsap/react';
 import { gsap, ScrollTrigger } from '@/lib/gsap';
 import { Logo } from '@/components/brand/Logo';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { CartDrawer } from '@/components/customer/CartDrawer';
 import { useCart } from '@/lib/cart-context';
+import { useAuth } from '@/lib/auth-context';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -21,13 +22,38 @@ const navLinks = [
   { label: 'Contacto', href: '/contact' },
 ];
 
+const roleLabels: Record<string, string> = {
+  admin: 'Admin',
+  proveedor: 'Proveedor',
+  transportista: 'Transportista',
+  repartidor: 'Repartidor',
+  cliente: 'Mi Cuenta',
+};
+
+const rolePortal: Record<string, string> = {
+  admin: '/admin',
+  proveedor: '/supplier',
+  transportista: '/transporter',
+  repartidor: '/repartidor',
+  cliente: '/shop',
+};
+
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { totalQty } = useCart();
+  const { user, logout } = useAuth();
   const [cartOpen, setCartOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
+
+  const handleLogout = () => {
+    logout();
+    setUserMenuOpen(false);
+    router.push('/login');
+  };
 
   /* ── Mount entrance + scroll hide/show ───────────────────── */
   useGSAP(() => {
@@ -141,13 +167,46 @@ export function Header() {
             <Heart className="h-4 w-4" />
           </button>
 
-          <Link
-            href="/login"
-            aria-label="Mi cuenta"
-            className="w-9 h-9 hidden sm:flex items-center justify-center text-[#333333] hover:text-[#222222] hover:bg-[#F2F2F2] transition-colors"
-          >
-            <User className="h-4 w-4" />
-          </Link>
+          {user ? (
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                aria-label="Mi cuenta"
+                className="w-9 h-9 flex items-center justify-center text-[#00C9B1] hover:text-[#00a898] hover:bg-[#F2F2F2] transition-colors"
+              >
+                <User className="h-4 w-4" />
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-10 w-52 bg-white border border-[#E0E0E0] shadow-lg z-50">
+                  <div className="px-4 py-3 border-b border-[#F2F2F2]">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#828282]">{roleLabels[user.role]}</p>
+                    <p className="text-xs text-[#222222] truncate mt-0.5">{user.email}</p>
+                  </div>
+                  <Link
+                    href={rolePortal[user.role]}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-[11px] font-medium tracking-wide text-[#555555] hover:text-[#222222] hover:bg-[#F9F9F9] transition-colors"
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5" /> Mi Portal
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-[11px] font-medium tracking-wide text-[#C0392B] hover:bg-[#FFF5F5] transition-colors"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> Cerrar Sesión
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              aria-label="Mi cuenta"
+              className="w-9 h-9 hidden sm:flex items-center justify-center text-[#333333] hover:text-[#222222] hover:bg-[#F2F2F2] transition-colors"
+            >
+              <User className="h-4 w-4" />
+            </Link>
+          )}
 
           <button
             onClick={() => setCartOpen(true)}
@@ -206,13 +265,35 @@ export function Header() {
                   >
                     <ShoppingBag className="h-3.5 w-3.5" /> Carrito ({totalQty})
                   </button>
-                  <Link
-                    href="/login"
-                    onClick={() => handleSheetChange(false)}
-                    className="flex w-full h-11 border border-[#E0E0E0] text-[#555555] text-[11px] font-medium tracking-[0.08em] uppercase items-center justify-center gap-2 hover:border-[#222222] hover:text-[#222222] transition-colors"
-                  >
-                    <User className="h-3.5 w-3.5" /> Mi Cuenta
-                  </Link>
+                  {user ? (
+                    <div className="space-y-1.5">
+                      <div className="px-3 py-2 bg-[#F9F9F9] border border-[#E0E0E0]">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#828282]">{roleLabels[user.role]}</p>
+                        <p className="text-xs text-[#222222] truncate">{user.email}</p>
+                      </div>
+                      <Link
+                        href={rolePortal[user.role]}
+                        onClick={() => handleSheetChange(false)}
+                        className="flex w-full h-10 border border-[#00C9B1] text-[#00C9B1] text-[11px] font-medium tracking-[0.08em] uppercase items-center justify-center gap-2 hover:bg-[#F0FFFE] transition-colors"
+                      >
+                        <LayoutDashboard className="h-3.5 w-3.5" /> Mi Portal
+                      </Link>
+                      <button
+                        onClick={() => { handleSheetChange(false); handleLogout(); }}
+                        className="flex w-full h-10 border border-[#C0392B] text-[#C0392B] text-[11px] font-medium tracking-[0.08em] uppercase items-center justify-center gap-2 hover:bg-[#FFF5F5] transition-colors"
+                      >
+                        <LogOut className="h-3.5 w-3.5" /> Cerrar Sesión
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      href="/login"
+                      onClick={() => handleSheetChange(false)}
+                      className="flex w-full h-11 border border-[#E0E0E0] text-[#555555] text-[11px] font-medium tracking-[0.08em] uppercase items-center justify-center gap-2 hover:border-[#222222] hover:text-[#222222] transition-colors"
+                    >
+                      <User className="h-3.5 w-3.5" /> Mi Cuenta
+                    </Link>
+                  )}
                   <Link
                     href="/shop"
                     className="flex w-full h-11 bg-[#222222] text-white text-[11px] font-bold tracking-[0.1em] uppercase items-center justify-center hover:bg-black transition-colors"
