@@ -14,7 +14,7 @@ const MOCK_USERS: { email: string; password: string; role: UserRole; name: strin
   { email: 'proveedor@mariasclub.com',       password: 'proveedor123',      role: 'proveedor',     name: 'Proveedor',      redirect: '/supplier' },
   { email: 'transportista@mariasclub.com',   password: 'transportista123',  role: 'transportista', name: 'Transportista',  redirect: '/transporter' },
   { email: 'repartidor@mariasclub.com',      password: 'repartidor123',     role: 'repartidor',    name: 'Repartidor',     redirect: '/repartidor' },
-  { email: 'cliente@mariasclub.com',         password: 'cliente123',        role: 'cliente',       name: 'Cliente',        redirect: '/shop' },
+  { email: 'cliente@mariasclub.com',         password: 'cliente123',        role: 'cliente',       name: 'Cliente',        redirect: '/account' },
 ];
 
 export default function LoginPage() {

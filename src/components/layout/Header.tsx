@@ -35,7 +35,7 @@ const rolePortal: Record<string, string> = {
   proveedor: '/supplier',
   transportista: '/transporter',
   repartidor: '/repartidor',
-  cliente: '/shop',
+  cliente: '/account',
 };
 
 export function Header() {
