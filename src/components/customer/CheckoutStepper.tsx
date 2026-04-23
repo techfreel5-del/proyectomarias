@@ -143,12 +143,17 @@ export function CheckoutStepper() {
             {/* Cart summary */}
             <div className="bg-[#F7F6F5] rounded-xl p-3 space-y-2 mb-2">
               {items.map((item) => (
-                <div key={item.product.id} className="flex items-center gap-3">
+                <div key={item.key} className="flex items-center gap-3">
                   <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-white">
                     <Image src={item.product.images[0]} alt={item.product.name} fill className="object-cover" sizes="40px" />
                   </div>
-                  <span className="text-sm font-body text-[#6B6359] flex-1 truncate">{item.product.name} × {item.qty}</span>
-                  <span className="text-sm font-semibold">${(item.product.price * item.qty).toFixed(2)}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-body text-[#0A0A0A] truncate">{item.product.name} × {item.qty}</p>
+                    {(item.size || item.color) && (
+                      <p className="text-xs text-[#8F8780]">{[item.color, item.size].filter(Boolean).join(' · ')}</p>
+                    )}
+                  </div>
+                  <span className="text-sm font-semibold flex-shrink-0">${(item.product.price * item.qty).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -189,8 +194,13 @@ export function CheckoutStepper() {
             {/* Order summary */}
             <div className="bg-[#F7F6F5] rounded-xl p-4 space-y-2">
               {items.map((item) => (
-                <div key={item.product.id} className="flex justify-between text-sm font-body">
-                  <span className="text-[#6B6359] truncate mr-2">{item.product.name} × {item.qty}</span>
+                <div key={item.key} className="flex justify-between text-sm font-body">
+                  <div className="min-w-0 mr-2">
+                    <span className="text-[#6B6359] truncate block">{item.product.name} × {item.qty}</span>
+                    {(item.size || item.color) && (
+                      <span className="text-xs text-[#8F8780]">{[item.color, item.size].filter(Boolean).join(' · ')}</span>
+                    )}
+                  </div>
                   <span className="font-semibold flex-shrink-0">${(item.product.price * item.qty).toFixed(2)}</span>
                 </div>
               ))}

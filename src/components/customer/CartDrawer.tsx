@@ -51,12 +51,12 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
               </button>
             </div>
           ) : (
-            items.map(({ product, qty }) => (
-              <div key={product.id} className="flex gap-3.5">
+            items.map((item) => (
+              <div key={item.key} className="flex gap-3.5">
                 <div className="relative w-20 h-24 flex-shrink-0 bg-[#F2F2F2] overflow-hidden">
                   <Image
-                    src={product.images[0]}
-                    alt={product.name}
+                    src={item.product.images[0]}
+                    alt={item.product.name}
                     fill
                     className="object-cover"
                     sizes="80px"
@@ -64,30 +64,28 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-body font-medium text-[#222222] line-clamp-2 mb-0.5">
-                    {product.name}
+                    {item.product.name}
                   </p>
-                  {product.sizes.length > 0 && (
-                    <p className="text-xs text-[#828282]">
-                      {product.colors[0]?.name ?? ''}
-                    </p>
-                  )}
+                  <p className="text-xs text-[#828282]">
+                    {[item.color, item.size].filter(Boolean).join(' · ')}
+                  </p>
                   <div className="flex items-center justify-between mt-2.5">
                     {/* Qty controls */}
                     <div className="flex items-center border border-[#E0E0E0]">
                       <button
-                        onClick={() => updateQty(product.id, -1)}
+                        onClick={() => updateQty(item.key, -1)}
                         className="w-7 h-7 flex items-center justify-center text-[#555555] hover:bg-[#F2F2F2] transition-colors"
                         aria-label="Reducir cantidad"
                       >
-                        {qty === 1
+                        {item.qty === 1
                           ? <Trash2 className="h-3 w-3 text-[#E4002B]" />
                           : <Minus className="h-3 w-3" />}
                       </button>
                       <span className="w-7 text-center text-xs font-semibold text-[#222222]">
-                        {qty}
+                        {item.qty}
                       </span>
                       <button
-                        onClick={() => updateQty(product.id, 1)}
+                        onClick={() => updateQty(item.key, 1)}
                         className="w-7 h-7 flex items-center justify-center text-[#555555] hover:bg-[#F2F2F2] transition-colors"
                         aria-label="Aumentar cantidad"
                       >
@@ -97,11 +95,11 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                     {/* Price */}
                     <div className="text-right">
                       <p className="text-sm font-bold text-[#222222]">
-                        ${(product.price * qty).toFixed(2)}
+                        ${(item.product.price * item.qty).toFixed(2)}
                       </p>
-                      {product.originalPrice && (
+                      {item.product.originalPrice && (
                         <p className="text-xs text-[#828282] line-through">
-                          ${(product.originalPrice * qty).toFixed(2)}
+                          ${(item.product.originalPrice * item.qty).toFixed(2)}
                         </p>
                       )}
                     </div>

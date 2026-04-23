@@ -47,13 +47,13 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const infoRef = useRef<HTMLDivElement>(null);
 
   const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) addItem(product);
+    for (let i = 0; i < quantity; i++) addItem(product, selectedSize, selectedColor);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
   const handleOrderNow = () => {
-    for (let i = 0; i < quantity; i++) addItem(product);
+    for (let i = 0; i < quantity; i++) addItem(product, selectedSize, selectedColor);
     router.push('/checkout');
   };
 

@@ -6,12 +6,15 @@ import { Product } from './mock-data';
 export interface CartItem {
   product: Product;
   qty: number;
+  size: string;
+  color: string;
+  key: string; // `${product.id}-${size}-${color}`
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product) => void;
-  updateQty: (productId: string, delta: number) => void;
+  addItem: (product: Product, size: string, color: string) => void;
+  updateQty: (key: string, delta: number) => void;
   clearCart: () => void;
   total: number;
   totalQty: number;
@@ -22,22 +25,21 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = (product: Product) => {
+  const addItem = (product: Product, size: string, color: string) => {
+    const key = `${product.id}-${size}-${color}`;
     setItems((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
+      const existing = prev.find((i) => i.key === key);
       if (existing) {
-        return prev.map((i) =>
-          i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i
-        );
+        return prev.map((i) => i.key === key ? { ...i, qty: i.qty + 1 } : i);
       }
-      return [...prev, { product, qty: 1 }];
+      return [...prev, { product, qty: 1, size, color, key }];
     });
   };
 
-  const updateQty = (productId: string, delta: number) => {
+  const updateQty = (key: string, delta: number) => {
     setItems((prev) =>
       prev
-        .map((i) => i.product.id === productId ? { ...i, qty: i.qty + delta } : i)
+        .map((i) => i.key === key ? { ...i, qty: i.qty + delta } : i)
         .filter((i) => i.qty > 0)
     );
   };
