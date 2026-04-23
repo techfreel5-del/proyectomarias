@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useGSAP } from '@gsap/react';
 import { gsap } from '@/lib/gsap';
 import { Product } from '@/lib/mock-data';
+import { useCart } from '@/lib/cart-context';
+import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import {
   ShoppingBag, ChevronLeft, ChevronRight, ChevronRight as BreadcrumbArrow,
@@ -36,9 +38,24 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [selectedColor, setSelectedColor] = useState(product.colors[0]?.name ?? '');
   const [isAdvance, setIsAdvance] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  const { addItem } = useCart();
+  const router = useRouter();
 
   const galleryRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
+
+  const handleAddToCart = () => {
+    for (let i = 0; i < quantity; i++) addItem(product);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
+  const handleOrderNow = () => {
+    for (let i = 0; i < quantity; i++) addItem(product);
+    router.push('/checkout');
+  };
 
   useGSAP(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -262,17 +279,27 @@ export function ProductDetail({ product }: ProductDetailProps) {
                   +
                 </button>
               </div>
-              <button className="flex-1 h-10 rounded-xl border border-[#0A0A0A] text-[#0A0A0A] text-sm font-semibold font-body hover:bg-[#0A0A0A] hover:text-white transition-all duration-300 flex items-center justify-center gap-2">
+              <button
+                onClick={handleAddToCart}
+                className={`flex-1 h-10 rounded-xl border text-sm font-semibold font-body transition-all duration-300 flex items-center justify-center gap-2 ${
+                  added
+                    ? 'border-[#00C9B1] bg-[#00C9B1] text-white'
+                    : 'border-[#0A0A0A] text-[#0A0A0A] hover:bg-[#0A0A0A] hover:text-white'
+                }`}
+              >
                 <ShoppingBag className="h-4 w-4" />
-                Add to Cart
+                {added ? '¡Agregado!' : 'Agregar al carrito'}
               </button>
             </div>
 
             {/* Primary CTA */}
-            <button className="w-full h-12 bg-[#0A0A0A] text-white rounded-xl text-sm font-bold font-body hover:bg-[#00C9B1] transition-all duration-300 flex items-center justify-center gap-2">
+            <button
+              onClick={handleOrderNow}
+              className="w-full h-12 bg-[#0A0A0A] text-white rounded-xl text-sm font-bold font-body hover:bg-[#00C9B1] transition-all duration-300 flex items-center justify-center gap-2"
+            >
               {isAdvance
-                ? `Pay $${(product.price * 0.5).toFixed(2)} Advance · Anticipo`
-                : `Order Now — $${total.toFixed(2)}`}
+                ? `Pagar $${(product.price * 0.5).toFixed(2)} de anticipo`
+                : `Ordenar ahora — $${total.toFixed(2)}`}
             </button>
 
             <Separator className="bg-[#EDEBE8]" />
