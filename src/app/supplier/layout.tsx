@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, Store, User, ExternalLink, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Package, Store, User, ExternalLink, ShoppingBag } from 'lucide-react';
 import { SupplierProvider, useSupplier } from '@/lib/supplier-context';
 import Image from 'next/image';
 
 const navItems = [
   { label: 'Dashboard', href: '/supplier', icon: LayoutDashboard },
+  { label: 'Pedidos MariasClub', href: '/supplier/pedidos', icon: ShoppingBag },
   { label: 'Inventario', href: '/supplier/inventario', icon: Package, badge: true },
   { label: 'Mi Tienda', href: '/supplier/tienda', icon: Store },
   { label: 'Perfil & Marca', href: '/supplier/perfil', icon: User },

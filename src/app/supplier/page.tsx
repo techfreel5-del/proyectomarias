@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowRight, Plus } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowRight, Plus, ShoppingBag } from 'lucide-react';
 import { useSupplier } from '@/lib/supplier-context';
 import { LocalOrdersPanel } from '@/components/shared/LocalOrdersPanel';
 
@@ -44,6 +44,20 @@ export default function SupplierDashboard() {
         ))}
       </div>
 
+      {/* Pedidos pendientes de MariasClub */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-[#0A0A0A] flex items-center gap-2">
+            <ShoppingBag className="h-4 w-4 text-[#00C9B1]" />
+            Pedidos MariasClub
+          </h2>
+          <Link href="/supplier/pedidos" className="text-xs text-[#00C9B1] hover:underline font-body font-semibold">
+            Ver todos →
+          </Link>
+        </div>
+        <LocalOrdersPanel title="Pedidos pendientes" filterStatus={['pending', 'processing']} allowAdvance={true} />
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Low stock alerts */}
         <div className="bg-white border border-[#EDEBE8] rounded-xl p-5">
@@ -84,28 +98,22 @@ export default function SupplierDashboard() {
           </Link>
         </div>
 
-        {/* Recent orders */}
-        <LocalOrdersPanel title="Pedidos Recientes" allowAdvance={true} />
+        {/* Accesos rápidos extras */}
+        <div className="bg-white border border-[#EDEBE8] rounded-xl p-5 flex flex-col justify-between">
+          <h2 className="text-sm font-bold text-[#0A0A0A] mb-4">Acciones rápidas</h2>
+          <div className="space-y-2">
+            <Link href="/supplier/pedidos" className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#F0FDF9] border border-[#00C9B1]/20 text-sm font-semibold text-[#009E8C] hover:bg-[#00C9B1]/10 transition-colors">
+              Ver todos los pedidos
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link href="/supplier/inventario" className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#F7F6F5] text-sm font-semibold text-[#0A0A0A] hover:bg-[#EDEBE8] transition-colors">
+              Gestionar inventario
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {[
-          { label: 'Agregar Producto', href: '/supplier/inventario', color: profile.brandColor },
-          { label: 'Editar Perfil & Marca', href: '/supplier/perfil', color: '#6B7280' },
-          { label: 'Vista Mi Tienda', href: '/supplier/tienda', color: '#8B5CF6' },
-        ].map(({ label, href, color }) => (
-          <Link
-            key={href}
-            href={href}
-            className="flex items-center justify-between px-4 py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: color }}
-          >
-            {label}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        ))}
-      </div>
     </div>
   );
 }
