@@ -30,6 +30,7 @@ export interface LocalOrder {
   supplierSlug?: string;
   shippingMethod?: string;
   shippingCost?: number;
+  deliveryType?: 'domicilio' | 'punto_acordado';
 }
 
 const KEY = 'mc_orders';
@@ -61,6 +62,16 @@ export function saveOrder(order: LocalOrder): void {
   orders.unshift(order);
   localStorage.setItem(KEY, JSON.stringify(orders));
   notify();
+}
+
+export function updateOrder(id: string, patch: Partial<LocalOrder>): void {
+  const orders = getOrders();
+  const idx = orders.findIndex((o) => o.id === id);
+  if (idx !== -1) {
+    orders[idx] = { ...orders[idx], ...patch };
+    localStorage.setItem(KEY, JSON.stringify(orders));
+    notify();
+  }
 }
 
 export function updateOrderStatus(id: string, status: OrderStatus): void {
