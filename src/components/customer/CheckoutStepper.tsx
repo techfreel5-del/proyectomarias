@@ -5,11 +5,12 @@ import { useGSAP } from '@gsap/react';
 import { gsap } from '@/lib/gsap';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle2, MapPin, CreditCard, Package } from 'lucide-react';
+import { CheckCircle2, MapPin, CreditCard, Package, LogIn } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/lib/cart-context';
-import { saveOrder, generateOrderId } from '@/lib/orders-store';
+import { useAuth } from '@/lib/auth-context';
+import { saveOrder, generateOrderId, SupplierPackage } from '@/lib/orders-store';
 
 const steps = [
   { label: 'Dirección', icon: MapPin },
@@ -24,8 +25,35 @@ const PAYMENT_METHODS = [
   { id: 'card', label: 'Tarjeta de Crédito / Débito', icon: '💳' },
 ];
 
+// Supplier email map (matches supplierId → contact email)
+const SUPPLIER_EMAILS: Record<string, string> = {
+  'fashion-hogar-zamora': 'proveedor@mariasclub.com',
+  'deportes-tech-zamora': 'proveedor2@mariasclub.com',
+};
+
+function buildSupplierPackages(items: ReturnType<typeof useCart>['items']): SupplierPackage[] {
+  const map = new Map<string, SupplierPackage>();
+  for (const item of items) {
+    const sid = item.product.supplierId;
+    const sName = item.product.supplierName;
+    if (!sid) continue;
+    if (!map.has(sid)) {
+      map.set(sid, {
+        supplierId: sid,
+        supplierName: sName,
+        supplierEmail: SUPPLIER_EMAILS[sid] ?? '',
+        itemIds: [],
+        status: 'pending',
+      });
+    }
+    map.get(sid)!.itemIds.push(item.product.id);
+  }
+  return Array.from(map.values());
+}
+
 export function CheckoutStepper() {
   const { items, total, clearCart } = useCart();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [isAdvance, setIsAdvance] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -34,19 +62,26 @@ export function CheckoutStepper() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Address form state
-  const [form, setForm] = useState({ name: '', phone: '', address: '', zone: ZONES[0] });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', zone: ZONES[0] });
 
   const amountPaid = isAdvance ? total * 0.5 : total;
 
-  const goNext = () => {
+  const goNext = async () => {
     if (step === 1) {
       // Generate and save order
       const orderId = generateOrderId();
-      saveOrder({
+      const supplierPackages = buildSupplierPackages(items);
+      const savedOrder = {
         id: orderId,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: new Date().toISOString(),
-        customer: form,
+        customer: {
+          name: form.name,
+          email: form.email || undefined,
+          phone: form.phone,
+          address: form.address,
+          zone: form.zone,
+        },
         items: items.map((i) => ({
           id: i.product.id,
           name: i.product.name,
@@ -55,14 +90,25 @@ export function CheckoutStepper() {
           image: i.product.images[0] ?? '',
           size: i.size,
           color: i.color,
+          supplierId: i.product.supplierId,
+          supplierName: i.product.supplierName,
         })),
         total,
         paymentMethod,
         isAdvance,
         amountPaid,
-      });
+        supplierPackages,
+      };
+      saveOrder(savedOrder);
       setConfirmedOrderId(orderId);
       clearCart();
+
+      // Notify via API (fire and forget — don't block UI)
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'order_placed', order: savedOrder }),
+      }).catch(() => {});
     }
     if (step < steps.length - 1) {
       setStep((s) => s + 1);
@@ -142,6 +188,25 @@ export function CheckoutStepper() {
         {step === 0 && (
           <div className="bg-white border border-[#EDEBE8] rounded-2xl p-6 space-y-4">
             <h2 className="font-display text-2xl font-bold text-[#0A0A0A] mb-2">Dirección de Entrega</h2>
+
+            {/* Login CTA — solo si no hay sesión */}
+            {!user && (
+              <div className="flex items-center justify-between gap-3 bg-[#F0FDF9] border border-[#00C9B1]/30 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <LogIn className="h-4 w-4 text-[#00C9B1] flex-shrink-0" />
+                  <p className="text-xs text-[#6B6359] font-body">
+                    Inicia sesión para rastrear tu pedido desde tu cuenta.
+                  </p>
+                </div>
+                <Link
+                  href="/login"
+                  className="text-xs font-semibold text-[#0A0A0A] whitespace-nowrap border border-[#EDEBE8] px-3 py-1.5 rounded-lg hover:border-[#0A0A0A] transition-colors"
+                >
+                  Iniciar sesión
+                </Link>
+              </div>
+            )}
+
             {/* Cart summary */}
             <div className="bg-[#F7F6F5] rounded-xl p-3 space-y-2 mb-2">
               {items.map((item) => (
@@ -159,13 +224,19 @@ export function CheckoutStepper() {
                 </div>
               ))}
             </div>
+
+            {/* Fields */}
             {[
-              { key: 'name', label: 'Nombre Completo', placeholder: 'María García', type: 'text' },
-              { key: 'phone', label: 'Teléfono', placeholder: '+52 351 000 0000', type: 'tel' },
-              { key: 'address', label: 'Calle y Número', placeholder: 'Calle Hidalgo 45', type: 'text' },
+              { key: 'name',    label: 'Nombre Completo',      placeholder: 'María García',          type: 'text'  },
+              { key: 'email',   label: 'Correo electrónico',   placeholder: 'tucorreo@ejemplo.com',  type: 'email' },
+              { key: 'phone',   label: 'Teléfono',             placeholder: '+52 351 000 0000',      type: 'tel'   },
+              { key: 'address', label: 'Calle y Número',       placeholder: 'Calle Hidalgo 45',      type: 'text'  },
             ].map((field) => (
               <div key={field.key}>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#6B6359] mb-1.5">{field.label}</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#6B6359] mb-1.5">
+                  {field.label}
+                  {field.key === 'email' && <span className="ml-1 text-[#C0BAB2] normal-case font-normal">(opcional — para recibir confirmación)</span>}
+                </label>
                 <input
                   type={field.type}
                   placeholder={field.placeholder}
@@ -263,6 +334,7 @@ export function CheckoutStepper() {
             <p className="text-sm text-[#6B6359] mb-6">
               Tu pedido <strong>{confirmedOrderId}</strong> ha sido registrado.{' '}
               {isAdvance && <span>Anticipo de <strong>${(total * 0.5).toFixed(2)}</strong> recibido.</span>}
+              {form.email && <span className="block text-xs text-[#8F8780] mt-1">Confirmación enviada a {form.email}</span>}
             </p>
             <div className="bg-[#F7F6F5] rounded-xl p-4 text-left space-y-2 mb-6">
               <div className="flex justify-between text-sm font-body">

@@ -9,12 +9,13 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { useAuth, type UserRole } from '@/lib/auth-context';
 
-const MOCK_USERS: { email: string; password: string; role: UserRole; name: string; redirect: string }[] = [
-  { email: 'admin@mariasclub.com',          password: 'admin123',          role: 'admin',         name: 'Administrador',  redirect: '/admin' },
-  { email: 'proveedor@mariasclub.com',       password: 'proveedor123',      role: 'proveedor',     name: 'Proveedor',      redirect: '/supplier' },
-  { email: 'transportista@mariasclub.com',   password: 'transportista123',  role: 'transportista', name: 'Transportista',  redirect: '/transporter' },
-  { email: 'repartidor@mariasclub.com',      password: 'repartidor123',     role: 'repartidor',    name: 'Repartidor',     redirect: '/repartidor' },
-  { email: 'cliente@mariasclub.com',         password: 'cliente123',        role: 'cliente',       name: 'Cliente',        redirect: '/account' },
+const MOCK_USERS: { email: string; password: string; role: UserRole; name: string; redirect: string; supplierId?: string }[] = [
+  { email: 'admin@mariasclub.com',          password: 'admin123',          role: 'admin',         name: 'Administrador',          redirect: '/admin' },
+  { email: 'proveedor@mariasclub.com',      password: 'proveedor123',      role: 'proveedor',     name: 'Moda & Hogar Zamora',    redirect: '/supplier', supplierId: 'fashion-hogar-zamora' },
+  { email: 'proveedor2@mariasclub.com',     password: 'proveedor2123',     role: 'proveedor',     name: 'Deportes & Tech Zamora', redirect: '/supplier', supplierId: 'deportes-tech-zamora' },
+  { email: 'transportista@mariasclub.com',  password: 'transportista123',  role: 'transportista', name: 'Transportista',          redirect: '/transporter' },
+  { email: 'repartidor@mariasclub.com',     password: 'repartidor123',     role: 'repartidor',    name: 'Repartidor',             redirect: '/repartidor' },
+  { email: 'cliente@mariasclub.com',        password: 'cliente123',        role: 'cliente',       name: 'Cliente',                redirect: '/account' },
 ];
 
 export default function LoginPage() {
@@ -33,7 +34,7 @@ export default function LoginPage() {
     const found = MOCK_USERS.find(u => u.email === email && u.password === password);
     if (found) {
       setError('');
-      login({ email: found.email, role: found.role, name: found.name, redirect: found.redirect });
+      login({ email: found.email, role: found.role, name: found.name, redirect: found.redirect, supplierId: found.supplierId });
       router.push(found.redirect);
     } else {
       setError('Correo o contraseña incorrectos.');

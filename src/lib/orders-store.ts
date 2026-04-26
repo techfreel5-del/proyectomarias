@@ -1,6 +1,14 @@
 // Shared orders store — localStorage based (Phase 2 will replace with DB)
 
-export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'returned';
+export type OrderStatus = 'pending' | 'processing' | 'at_hub' | 'shipped' | 'delivered' | 'returned';
+
+export interface SupplierPackage {
+  supplierId: string;
+  supplierName: string;
+  supplierEmail: string;
+  itemIds: string[];
+  status: 'pending' | 'preparing' | 'ready' | 'picked_up';
+}
 
 export interface LocalOrderItem {
   id: string;
@@ -10,6 +18,8 @@ export interface LocalOrderItem {
   image: string;
   size?: string;
   color?: string;
+  supplierId?: string;
+  supplierName?: string;
 }
 
 export interface LocalOrder {
@@ -18,6 +28,7 @@ export interface LocalOrder {
   createdAt: string;
   customer: {
     name: string;
+    email?: string;
     phone: string;
     address: string;
     zone: string;
@@ -31,6 +42,8 @@ export interface LocalOrder {
   shippingMethod?: string;
   shippingCost?: number;
   deliveryType?: 'domicilio' | 'punto_acordado';
+  paymentCollectedMethod?: 'cash' | 'card';
+  supplierPackages?: SupplierPackage[];
 }
 
 const KEY = 'mc_orders';
@@ -84,6 +97,33 @@ export function updateOrderStatus(id: string, status: OrderStatus): void {
   }
 }
 
+export function updateSupplierPackage(
+  orderId: string,
+  supplierId: string,
+  status: SupplierPackage['status']
+): void {
+  const orders = getOrders();
+  const idx = orders.findIndex((o) => o.id === orderId);
+  if (idx === -1) return;
+  const order = orders[idx];
+  if (!order.supplierPackages) return;
+  const pkgIdx = order.supplierPackages.findIndex((p) => p.supplierId === supplierId);
+  if (pkgIdx === -1) return;
+  order.supplierPackages[pkgIdx].status = status;
+  // If first supplier starts preparing, bump order to processing
+  if (status === 'preparing' && order.status === 'pending') {
+    order.status = 'processing';
+  }
+  orders[idx] = order;
+  localStorage.setItem(KEY, JSON.stringify(orders));
+  notify();
+}
+
+export function allPackagesPickedUp(order: LocalOrder): boolean {
+  if (!order.supplierPackages || order.supplierPackages.length === 0) return false;
+  return order.supplierPackages.every((p) => p.status === 'picked_up');
+}
+
 export function generateOrderId(): string {
   const existing = getOrders().map((o) => o.id);
   // Find next available ORD-NNN above 005 (mock data uses 001-005)
@@ -93,8 +133,9 @@ export function generateOrderId(): string {
 }
 
 export const STATUS_LABELS: Record<OrderStatus, string> = {
-  pending: 'Pendiente',
-  processing: 'En proceso',
+  pending: 'Pedido recibido',
+  processing: 'Preparando pedido',
+  at_hub: 'En centro de distribución',
   shipped: 'En camino',
   delivered: 'Entregado',
   returned: 'Devuelto',
@@ -103,6 +144,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
 export const STATUS_COLORS: Record<OrderStatus, string> = {
   pending: 'text-orange-600 bg-orange-50 border-orange-200',
   processing: 'text-blue-600 bg-blue-50 border-blue-200',
+  at_hub: 'text-indigo-600 bg-indigo-50 border-indigo-200',
   shipped: 'text-purple-600 bg-purple-50 border-purple-200',
   delivered: 'text-teal-600 bg-teal-50 border-teal-200',
   returned: 'text-red-600 bg-red-50 border-red-200',

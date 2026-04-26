@@ -9,6 +9,7 @@ export interface AuthUser {
   role: UserRole;
   name: string;
   redirect: string;
+  supplierId?: string;
 }
 
 interface AuthContextValue {

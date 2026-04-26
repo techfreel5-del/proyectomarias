@@ -16,6 +16,7 @@ import { RouteMap } from '@/components/transporter/RouteMap';
 
 type Tab = 'entregas' | 'mapa' | 'historial';
 type DeliveryType = 'domicilio' | 'punto_acordado';
+type PaymentMethod = 'cash' | 'card';
 
 export default function RepartidorPage() {
   const { user, logout } = useAuth();
@@ -23,6 +24,7 @@ export default function RepartidorPage() {
   const [tab, setTab] = useState<Tab>('entregas');
   const [orders, setOrders] = useState<LocalOrder[]>([]);
   const [deliveryTypes, setDeliveryTypes] = useState<Record<string, DeliveryType>>({});
+  const [paymentMethods, setPaymentMethods] = useState<Record<string, PaymentMethod>>({});
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(() => setOrders(getOrders()), []);
@@ -43,13 +45,19 @@ export default function RepartidorPage() {
 
   const confirmDelivery = (order: LocalOrder) => {
     const type = deliveryTypes[order.id] ?? 'domicilio';
-    updateOrder(order.id, { status: 'delivered', deliveryType: type });
+    const paymentCollectedMethod = order.isAdvance
+      ? (paymentMethods[order.id] ?? 'cash')
+      : undefined;
+    updateOrder(order.id, { status: 'delivered', deliveryType: type, paymentCollectedMethod });
     setConfirmed((prev) => new Set([...prev, order.id]));
     refresh();
   };
 
   const setType = (id: string, type: DeliveryType) =>
     setDeliveryTypes((prev) => ({ ...prev, [id]: type }));
+
+  const setPayment = (id: string, method: PaymentMethod) =>
+    setPaymentMethods((prev) => ({ ...prev, [id]: method }));
 
   return (
     <div className="min-h-screen bg-[#F7F6F5]">
@@ -242,6 +250,36 @@ export default function RepartidorPage() {
                           </div>
                         </div>
 
+                        {/* Payment collection — only when isAdvance */}
+                        {balance > 0 && !isDone && (
+                          <div>
+                            <p className="text-[10px] font-body text-[#8F8780] uppercase tracking-widest mb-2">
+                              Cobrar ${balance.toFixed(2)} con:
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {([
+                                { id: 'cash' as PaymentMethod, label: 'Efectivo', icon: '💵' },
+                                { id: 'card' as PaymentMethod, label: 'Tarjeta',  icon: '💳' },
+                              ]).map((m) => {
+                                const selected = (paymentMethods[order.id] ?? 'cash') === m.id;
+                                return (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => setPayment(order.id, m.id)}
+                                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                                      selected
+                                        ? 'bg-[#C0392B] text-white border-[#C0392B]'
+                                        : 'bg-white text-[#6B6359] border-[#EDEBE8] hover:border-[#C0392B] hover:text-[#C0392B]'
+                                    }`}
+                                  >
+                                    <span>{m.icon}</span> {m.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Confirm button */}
                         <button
                           onClick={() => confirmDelivery(order)}
@@ -364,6 +402,11 @@ export default function RepartidorPage() {
                               ? <><Home className="h-2.5 w-2.5" /> A domicilio</>
                               : <><MapPin className="h-2.5 w-2.5" /> En punto acordado</>
                             }
+                          </p>
+                        )}
+                        {order.paymentCollectedMethod && (
+                          <p className="text-[10px] text-[#C0392B] font-body mt-0.5">
+                            Cobrado en {order.paymentCollectedMethod === 'cash' ? 'efectivo 💵' : 'tarjeta 💳'}
                           </p>
                         )}
                       </div>

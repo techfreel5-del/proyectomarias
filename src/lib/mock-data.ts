@@ -22,6 +22,8 @@ export interface Product {
   description: string;
   badge?: ProductBadge;
   inStock: boolean;
+  supplierId: string;
+  supplierName: string;
 }
 
 export interface TrackingEvent {
@@ -86,6 +88,8 @@ export const products: Product[] = [
     description: 'Relaxed linen-blend jacket with a modern fit. Perfect for layering.',
     badge: 'sale',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'f002',
@@ -103,6 +107,8 @@ export const products: Product[] = [
     description: 'Ultra-soft cashmere-blend crewneck sweater with a relaxed silhouette.',
     badge: 'trending',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'f003',
@@ -118,6 +124,8 @@ export const products: Product[] = [
     sizes: ['XS', 'S', 'M', 'L'],
     description: 'Clean lines, fluid fabric. A wardrobe essential.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'f004',
@@ -134,6 +142,8 @@ export const products: Product[] = [
     description: 'Full-grain leather ankle boots with block heel. Timeless design.',
     badge: 'new',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'f005',
@@ -149,6 +159,8 @@ export const products: Product[] = [
     sizes: ['One Size'],
     description: 'Minimal structured tote in premium leather. Fits a 13" laptop.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'f006',
@@ -164,6 +176,8 @@ export const products: Product[] = [
     sizes: ['28', '30', '32', '34', '36'],
     description: 'Tailored slim-fit chinos in stretch cotton. Wear up or down.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'f007',
@@ -180,6 +194,8 @@ export const products: Product[] = [
     description: 'Ultra-thin minimalist watch with sapphire crystal glass.',
     badge: 'new',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'f008',
@@ -195,6 +211,8 @@ export const products: Product[] = [
     sizes: ['S', 'M', 'L', 'XL'],
     description: 'Full-grain leather belt with brushed silver buckle.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
 
   // HOME & KITCHEN
@@ -214,6 +232,8 @@ export const products: Product[] = [
     description: 'High-performance blender with 8-blade system. Silent motor technology.',
     badge: 'sale',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'h002',
@@ -229,6 +249,8 @@ export const products: Product[] = [
     sizes: ['4-cup', '8-cup'],
     description: 'Borosilicate glass pour-over with walnut collar. Brews the perfect cup.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'h003',
@@ -245,6 +267,8 @@ export const products: Product[] = [
     description: '15-in-1 electric pressure cooker. Slow cook, sauté, steam, and more.',
     badge: 'trending',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'h004',
@@ -260,6 +284,8 @@ export const products: Product[] = [
     sizes: ['130×170cm'],
     description: 'Stonewashed linen throw. Gets softer with every wash.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'h005',
@@ -276,6 +302,8 @@ export const products: Product[] = [
     description: 'Handcrafted ceramic dinnerware set. Microwave and dishwasher safe.',
     badge: 'new',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'h006',
@@ -291,6 +319,8 @@ export const products: Product[] = [
     sizes: ['M', 'L', 'XL'],
     description: 'End-grain oak cutting board with juice groove. Pre-oiled and ready to use.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'h007',
@@ -306,6 +336,8 @@ export const products: Product[] = [
     sizes: ['300ml'],
     description: 'Ultrasonic essential oil diffuser with 7-color LED and timer.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
   {
     id: 'h008',
@@ -321,6 +353,8 @@ export const products: Product[] = [
     sizes: ['Set of 2', 'Set of 4'],
     description: 'Premium waffle-weave towels. 100% Turkish cotton. Quick-dry.',
     inStock: true,
+    supplierId: 'fashion-hogar-zamora',
+    supplierName: 'Moda & Hogar Zamora',
   },
 
   // SPORTS & FITNESS
@@ -339,6 +373,8 @@ export const products: Product[] = [
     description: 'Non-slip TPE yoga mat with alignment lines. Eco-friendly and sweat-resistant.',
     badge: 'trending',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 's002',
@@ -356,6 +392,8 @@ export const products: Product[] = [
     description: 'Space-saving adjustable dumbbells. Replace 15 pairs. Dial select system.',
     badge: 'sale',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 's003',
@@ -371,6 +409,8 @@ export const products: Product[] = [
     sizes: ['5-pack'],
     description: '5 resistance levels. 100% natural latex. Includes carry bag and guide.',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 's004',
@@ -387,6 +427,8 @@ export const products: Product[] = [
     description: 'Insulated stainless steel bottle with hydration reminder LED ring.',
     badge: 'new',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 's005',
@@ -402,6 +444,8 @@ export const products: Product[] = [
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45'],
     description: 'Lightweight mesh runners with responsive cushioning sole.',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 's006',
@@ -417,6 +461,8 @@ export const products: Product[] = [
     sizes: ['30cm', '45cm', '60cm'],
     description: 'High-density EVA foam roller with grid pattern for deep tissue massage.',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 's007',
@@ -432,6 +478,8 @@ export const products: Product[] = [
     sizes: ['40L'],
     description: 'Waterproof duffel with separate shoe compartment and wet pocket.',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
 
   // ELECTRONICS
@@ -451,6 +499,8 @@ export const products: Product[] = [
     description: 'AMOLED display smartwatch with GPS, heart rate, and 7-day battery life.',
     badge: 'new',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 'e002',
@@ -467,6 +517,8 @@ export const products: Product[] = [
     description: 'Active noise-cancelling earbuds. 32h total battery. IPX5 water-resistant.',
     badge: 'trending',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 'e003',
@@ -482,6 +534,8 @@ export const products: Product[] = [
     sizes: ['One Size'],
     description: '20,000mAh power bank with 65W USB-C PD. Charges laptops.',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 'e004',
@@ -498,6 +552,8 @@ export const products: Product[] = [
     description: '75% layout wireless mechanical keyboard with hot-swap switches.',
     badge: 'new',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 'e005',
@@ -515,6 +571,8 @@ export const products: Product[] = [
     description: '34" curved ultrawide IPS, 144Hz, 1ms, USB-C 65W charging.',
     badge: 'sale',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 'e006',
@@ -530,6 +588,8 @@ export const products: Product[] = [
     sizes: ['One Size'],
     description: '4K/60fps action camera. Waterproof to 10m. 2" touch screen.',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
   {
     id: 'e007',
@@ -546,6 +606,8 @@ export const products: Product[] = [
     description: '360° sound bluetooth speaker. IP67 waterproof. 24h playtime.',
     badge: 'trending',
     inStock: true,
+    supplierId: 'deportes-tech-zamora',
+    supplierName: 'Deportes & Tech Zamora',
   },
 ];
 

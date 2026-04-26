@@ -39,13 +39,14 @@ export default function TrackingPage() {
   // If it's a localStorage order, show custom timeline
   if (localOrder) {
     const PHASES = [
-      { key: 'pending', label: 'Pedido recibido', sub: 'Tu pedido fue registrado correctamente' },
-      { key: 'processing', label: 'Preparando pedido', sub: 'El proveedor está empacando tu pedido' },
-      { key: 'shipped', label: 'En camino', sub: 'Tu pedido está en ruta hacia tu domicilio' },
-      { key: 'delivered', label: 'Entregado', sub: '¡Tu pedido llegó a su destino!' },
+      { key: 'pending',    label: 'Pedido recibido',          sub: 'Tu pedido fue registrado correctamente' },
+      { key: 'processing', label: 'Preparando pedido',        sub: 'Los proveedores están empacando tu pedido' },
+      { key: 'at_hub',     label: 'En centro de distribución', sub: 'Tu pedido llegó a Zamora y será asignado a un repartidor' },
+      { key: 'shipped',    label: 'En camino',                sub: 'Tu pedido está en ruta hacia tu domicilio' },
+      { key: 'delivered',  label: 'Entregado',                sub: '¡Tu pedido llegó a su destino!' },
     ] as const;
 
-    const statusOrder = ['pending', 'processing', 'shipped', 'delivered'];
+    const statusOrder = ['pending', 'processing', 'at_hub', 'shipped', 'delivered'];
     const currentIdx = statusOrder.indexOf(localOrder.status);
 
     const PAYMENT_LABELS: Record<string, string> = {
@@ -97,6 +98,30 @@ export default function TrackingPage() {
               })}
             </div>
           </div>
+
+          {/* Supplier packages breakdown — informativo */}
+          {localOrder.supplierPackages && localOrder.supplierPackages.length > 1 && (
+            <div className="bg-white border border-[#EDEBE8] rounded-2xl p-6 mb-6">
+              <h3 className="font-semibold text-[#0A0A0A] mb-3 text-sm">Paquetes de tu pedido</h3>
+              <div className="space-y-2">
+                {localOrder.supplierPackages.map((pkg) => (
+                  <div key={pkg.supplierId} className="flex items-center justify-between text-xs font-body">
+                    <span className="text-[#6B6359]">{pkg.supplierName}</span>
+                    <span className={`font-semibold px-2 py-0.5 rounded-full border text-[10px] ${
+                      pkg.status === 'picked_up' ? 'text-teal-600 bg-teal-50 border-teal-200' :
+                      pkg.status === 'ready'     ? 'text-green-600 bg-green-50 border-green-200' :
+                      pkg.status === 'preparing' ? 'text-blue-600 bg-blue-50 border-blue-200' :
+                      'text-orange-600 bg-orange-50 border-orange-200'
+                    }`}>
+                      {pkg.status === 'picked_up' ? 'En camino al hub' :
+                       pkg.status === 'ready'     ? 'Listo para recoger' :
+                       pkg.status === 'preparing' ? 'Preparando' : 'Pendiente'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Order details */}
           <div className="bg-white border border-[#EDEBE8] rounded-2xl p-6 mb-4">
