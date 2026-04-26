@@ -2,8 +2,8 @@ import { MetricsOverview } from '@/components/admin/MetricsOverview';
 import { PriceEngine } from '@/components/admin/PriceEngine';
 import { ZoneConfigurator } from '@/components/admin/ZoneConfigurator';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { OrderTable } from '@/components/supplier/OrderTable';
-import { deliveryZones, orders } from '@/lib/mock-data';
+import { LocalOrdersPanel } from '@/components/shared/LocalOrdersPanel';
+import { deliveryZones } from '@/lib/mock-data';
 
 export const metadata = { title: 'Admin Panel' };
 
@@ -30,7 +30,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <OrderTable orders={orders} />
+        <LocalOrdersPanel title="Pedidos Recientes" allowAdvance={true} />
       </main>
     </div>
   );

@@ -2,25 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { orders as mockOrders } from '@/lib/mock-data';
 import {
   getOrders, updateOrderStatus, LocalOrder, OrderStatus,
   STATUS_LABELS, STATUS_COLORS, subscribeOrders,
 } from '@/lib/orders-store';
 import { Package, ChevronDown, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-
-const MOCK_STATUS_COLORS: Record<string, string> = {
-  pending: 'text-orange-600 bg-orange-50',
-  processing: 'text-blue-600 bg-blue-50',
-  shipped: 'text-purple-600 bg-purple-50',
-  delivered: 'text-teal-600 bg-teal-50',
-  returned: 'text-red-600 bg-red-50',
-};
-const MOCK_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendiente', processing: 'En proceso', shipped: 'En camino',
-  delivered: 'Entregado', returned: 'Devuelto',
-};
 
 const ALL_STATUSES: OrderStatus[] = ['pending', 'processing', 'shipped', 'delivered', 'returned'];
 
@@ -46,15 +33,10 @@ export default function AdminOrdersPage() {
     ? localOrders
     : localOrders.filter((o) => o.status === filterStatus);
 
-  const filteredMock = filterStatus === 'all'
-    ? mockOrders
-    : mockOrders.filter((o) => o.status === filterStatus);
-
-  const totalAll = localOrders.length + mockOrders.length;
+  const totalAll = localOrders.length;
 
   const counts = ALL_STATUSES.reduce((acc, s) => {
-    acc[s] = localOrders.filter((o) => o.status === s).length
-           + mockOrders.filter((o) => o.status === s).length;
+    acc[s] = localOrders.filter((o) => o.status === s).length;
     return acc;
   }, {} as Record<OrderStatus, number>);
 
@@ -107,10 +89,8 @@ export default function AdminOrdersPage() {
           <span className="text-xs text-[#8F8780] font-body">{totalAll} pedidos en total</span>
         </div>
 
-        {/* Real orders (localStorage) */}
         {filteredLocal.length > 0 && (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#00C9B1] mb-3">Pedidos nuevos</p>
             <div className="bg-white border border-[#EDEBE8] rounded-2xl overflow-hidden">
               <div className="divide-y divide-[#F7F6F5]">
                 {filteredLocal.map((order) => (
@@ -208,40 +188,7 @@ export default function AdminOrdersPage() {
           </div>
         )}
 
-        {/* Mock orders */}
-        {filteredMock.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#8F8780] mb-3">Pedidos de ejemplo</p>
-            <div className="bg-white border border-[#EDEBE8] rounded-2xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[#EDEBE8] bg-[#F7F6F5]">
-                    {['ID', 'Cliente', 'Producto', 'Total', 'Estado'].map((h) => (
-                      <th key={h} className="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#8F8780]">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMock.map((order) => (
-                    <tr key={order.id} className="border-b border-[#F7F6F5] hover:bg-[#FAFAFA]">
-                      <td className="px-5 py-3 font-mono text-xs font-bold">{order.id}</td>
-                      <td className="px-5 py-3 text-[#6B6359] font-body">{order.customerName}</td>
-                      <td className="px-5 py-3 text-[#6B6359] font-body">{order.product}</td>
-                      <td className="px-5 py-3 font-semibold">${order.total}</td>
-                      <td className="px-5 py-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${MOCK_STATUS_COLORS[order.status]}`}>
-                          {MOCK_STATUS_LABELS[order.status]}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {filteredLocal.length === 0 && filteredMock.length === 0 && (
+        {filteredLocal.length === 0 && (
           <div className="text-center py-16 text-[#8F8780] font-body border border-[#EDEBE8] rounded-2xl bg-white">
             <Package className="h-10 w-10 mx-auto mb-2 opacity-40" />
             Sin pedidos con ese filtro.

@@ -85,7 +85,7 @@ export default function SupplierDashboard() {
         </div>
 
         {/* Recent orders */}
-        <LocalOrdersPanel title="Pedidos Recientes" />
+        <LocalOrdersPanel title="Pedidos Recientes" allowAdvance={true} />
       </div>
 
       {/* Quick actions */}
