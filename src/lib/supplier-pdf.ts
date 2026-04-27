@@ -14,6 +14,7 @@ export interface OrderPDFParams {
   shippingCost: number;
   total: number;
   bankInfo: BankInfo;
+  paymentMethod?: 'transfer' | 'cash';
 }
 
 export async function downloadOrderPDF(params: OrderPDFParams): Promise<void> {
@@ -100,6 +101,7 @@ export async function downloadOrderPDF(params: OrderPDFParams): Promise<void> {
     ...(params.customer.email ? [['Correo', params.customer.email]] : []),
     ['Dirección', params.customer.address],
     ['Entrega',  params.shippingMethod],
+    ['Pago',     params.paymentMethod === 'cash' ? 'Efectivo en tienda' : 'Transferencia bancaria'],
   ];
 
   doc.setFontSize(9);
@@ -286,7 +288,10 @@ export function buildWhatsAppUrl(params: {
   shippingCost: number;
   total: number;
   bankInfo: BankInfo;
+  paymentMethod?: 'transfer' | 'cash';
 }): string {
+  const isCash = params.paymentMethod === 'cash';
+
   const lines = [
     `*NUEVO PEDIDO — ${params.storeName}*`,
     `Pedido: ${params.orderId}`,
@@ -303,16 +308,25 @@ export function buildWhatsAppUrl(params: {
     `*Envío:* ${params.shippingMethod} — ${params.shippingCost === 0 ? 'Gratis' : `$${params.shippingCost.toFixed(2)}`}`,
     `*TOTAL A PAGAR: $${params.total.toFixed(2)} MXN*`,
     ``,
-    ...(params.bankInfo.bank ? [
-      `*DATOS PARA TRANSFERENCIA*`,
-      ...(params.bankInfo.beneficiary ? [`Beneficiario: ${params.bankInfo.beneficiary}`] : []),
-      `Banco: ${params.bankInfo.bank}`,
-      ...(params.bankInfo.accountNumber ? [`Cuenta: ${params.bankInfo.accountNumber}`] : []),
-      ...(params.bankInfo.clabe ? [`CLABE: ${params.bankInfo.clabe}`] : []),
-      ...(params.bankInfo.concept ? [`Concepto: ${params.bankInfo.concept} ${params.orderId}`] : []),
-      ``,
-    ] : []),
-    `_Por favor adjunta el PDF descargado y el comprobante de transferencia para confirmar tu pedido._`,
+    `*FORMA DE PAGO:* ${isCash ? 'Efectivo en tienda' : 'Transferencia bancaria'}`,
+    ``,
+    ...(isCash ? [
+      `ℹ️ El pedido se entregará al momento de realizar el pago en efectivo en la tienda.`,
+    ] : [
+      ...(params.bankInfo.bank ? [
+        `*DATOS PARA TRANSFERENCIA*`,
+        ...(params.bankInfo.beneficiary ? [`Beneficiario: ${params.bankInfo.beneficiary}`] : []),
+        `Banco: ${params.bankInfo.bank}`,
+        ...(params.bankInfo.accountNumber ? [`Cuenta: ${params.bankInfo.accountNumber}`] : []),
+        ...(params.bankInfo.clabe ? [`CLABE: ${params.bankInfo.clabe}`] : []),
+        ...(params.bankInfo.concept ? [`Concepto: ${params.bankInfo.concept} ${params.orderId}`] : []),
+        ``,
+        `📎 Adjunta el PDF y el comprobante de transferencia para confirmar tu pedido.`,
+        `⏱ Confirmación en máximo 6 horas hábiles.`,
+      ] : [
+        `_El proveedor compartirá los datos de transferencia para realizar el pago._`,
+      ]),
+    ]),
   ];
 
   const text = encodeURIComponent(lines.join('\n'));

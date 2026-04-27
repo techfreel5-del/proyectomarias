@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { Upload, X, Check, Store, Palette, Phone, Eye, Truck, Landmark, MessageCircle } from 'lucide-react';
-import { useSupplier } from '@/lib/supplier-context';
+import { Upload, X, Check, Store, Palette, Phone, Eye, Truck, Landmark, MessageCircle, Package } from 'lucide-react';
+import { useSupplier, ZonedPricing } from '@/lib/supplier-context';
 import Link from 'next/link';
 
 export default function PerfilPage() {
@@ -243,51 +243,109 @@ export default function PerfilPage() {
           </label>
         </section>
 
-        {/* Métodos de envío */}
+        {/* Métodos de entrega */}
         <section className="bg-white border border-[#EDEBE8] rounded-2xl p-6">
-          <h2 className="text-sm font-bold text-[#0A0A0A] flex items-center gap-2 mb-5">
+          <h2 className="text-sm font-bold text-[#0A0A0A] flex items-center gap-2 mb-2">
             <Truck className="h-4 w-4" style={{ color: form.brandColor }} />
             Métodos de entrega
           </h2>
-          <p className="text-xs text-[#8F8780] font-body mb-5">Activa los métodos disponibles y configura el costo de cada uno. El costo 0 se mostrará como &quot;Gratis&quot;.</p>
+          <p className="text-xs text-[#8F8780] font-body mb-5">
+            Activa los métodos disponibles para tus clientes. Cada método se configura de forma independiente.
+          </p>
           <div className="space-y-4">
-            {(form.storeConfig?.shippingMethods ?? []).map((method, idx) => (
-              <div key={method.type} className="border border-[#EDEBE8] rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#0A0A0A]">{method.label}</p>
-                    <p className="text-xs text-[#8F8780] font-body">{method.description}</p>
+            {(form.storeConfig?.shippingMethods ?? []).map((method, idx) => {
+              const updateMethod = (patch: Record<string, unknown>) => {
+                const methods = [...(form.storeConfig?.shippingMethods ?? [])];
+                methods[idx] = { ...methods[idx], ...patch };
+                setForm({ ...form, storeConfig: { ...form.storeConfig, shippingMethods: methods } });
+              };
+              const updateZone = (zone: keyof ZonedPricing, val: number) => {
+                const methods = [...(form.storeConfig?.shippingMethods ?? [])];
+                const base = methods[idx].zonedPricing ?? { local: 80, regional: 120, centro: 160, lejano: 200 };
+                methods[idx] = { ...methods[idx], zonedPricing: { ...base, [zone]: Math.max(0, val) } };
+                setForm({ ...form, storeConfig: { ...form.storeConfig, shippingMethods: methods } });
+              };
+
+              return (
+                <div key={method.type} className="border border-[#EDEBE8] rounded-xl p-4">
+                  {/* Cabecera con toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#F7F6F5] flex items-center justify-center text-[#6B6359]">
+                        {method.type === 'pickup'     && <Store   className="h-4 w-4" />}
+                        {method.type === 'paqueteria' && <Truck   className="h-4 w-4" />}
+                        {method.type === 'rappi'      && <Package className="h-4 w-4" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#0A0A0A]">{method.label}</p>
+                        <p className="text-xs text-[#8F8780] font-body">{method.description}</p>
+                      </div>
+                    </div>
+                    <div
+                      onClick={() => updateMethod({ enabled: !method.enabled })}
+                      className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer flex-shrink-0 ${method.enabled ? 'bg-[#10B981]' : 'bg-[#D9D5CF]'}`}
+                    >
+                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${method.enabled ? 'left-5' : 'left-0.5'}`} />
+                    </div>
                   </div>
-                  <div
-                    onClick={() => {
-                      const methods = [...(form.storeConfig?.shippingMethods ?? [])];
-                      methods[idx] = { ...methods[idx], enabled: !methods[idx].enabled };
-                      setForm({ ...form, storeConfig: { ...form.storeConfig, shippingMethods: methods } });
-                    }}
-                    className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${method.enabled ? 'bg-[#10B981]' : 'bg-[#D9D5CF]'}`}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${method.enabled ? 'left-5' : 'left-0.5'}`} />
-                  </div>
+
+                  {/* Config por tipo cuando está activo */}
+                  {method.enabled && method.type === 'pickup' && (
+                    <div className="mt-3 px-3 py-2 bg-green-50 border border-green-100 rounded-lg">
+                      <p className="text-xs text-green-700 font-semibold">Sin costo adicional — siempre gratis para el cliente</p>
+                    </div>
+                  )}
+
+                  {method.enabled && method.type === 'rappi' && (
+                    <div className="mt-3 flex items-center gap-3">
+                      <label className="text-xs font-semibold text-[#6B6359] whitespace-nowrap">Costo del servicio ($MXN)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={method.cost}
+                        onChange={(e) => updateMethod({ cost: Math.max(0, Number(e.target.value)) })}
+                        className="w-28 border border-[#EDEBE8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#3B82F6] bg-white"
+                      />
+                      {method.cost === 0 && <span className="text-xs text-green-600 font-semibold">Gratis</span>}
+                    </div>
+                  )}
+
+                  {method.enabled && method.type === 'paqueteria' && (
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold text-[#6B6359] uppercase tracking-wider mb-3">
+                        Costo por zona (según CP del cliente, distancia desde Guadalajara)
+                      </p>
+                      <div className="space-y-2">
+                        {([
+                          { zone: 'local'    as const, label: 'Zona local',    desc: 'Jalisco, Michoacán, Colima, Nayarit' },
+                          { zone: 'regional' as const, label: 'Zona regional', desc: 'Bajío, Sinaloa, SLP, Zacatecas…' },
+                          { zone: 'centro'   as const, label: 'Zona centro',   desc: 'CDMX, Puebla, EdoMex, Morelos…' },
+                          { zone: 'lejano'   as const, label: 'Zona lejana',   desc: 'Norte, Sur, Sureste del país' },
+                        ]).map(({ zone, label, desc }) => (
+                          <div key={zone} className="flex items-center gap-3 bg-[#F7F6F5] rounded-lg px-3 py-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-[#0A0A0A]">{label}</p>
+                              <p className="text-[10px] text-[#8F8780] font-body">{desc}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className="text-xs text-[#8F8780]">$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={method.zonedPricing?.[zone] ?? 0}
+                                onChange={(e) => updateZone(zone, Number(e.target.value))}
+                                className="w-20 border border-[#EDEBE8] rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-[#3B82F6] bg-white"
+                              />
+                              <span className="text-[10px] text-[#8F8780]">MXN</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {method.enabled && (
-                  <div className="flex items-center gap-3">
-                    <label className="text-xs font-semibold text-[#6B6359] whitespace-nowrap">Costo ($MXN)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={method.cost}
-                      onChange={(e) => {
-                        const methods = [...(form.storeConfig?.shippingMethods ?? [])];
-                        methods[idx] = { ...methods[idx], cost: Math.max(0, Number(e.target.value)) };
-                        setForm({ ...form, storeConfig: { ...form.storeConfig, shippingMethods: methods } });
-                      }}
-                      className="w-28 border border-[#EDEBE8] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#3B82F6] bg-white"
-                    />
-                    {method.cost === 0 && <span className="text-xs text-green-600 font-semibold">Gratis</span>}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 

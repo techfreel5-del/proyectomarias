@@ -5,14 +5,22 @@ import { posProducts } from './mock-data';
 
 /* ── Types ────────────────────────────────────────────────── */
 
-export type ShippingMethodType = 'pickup' | 'centro' | 'paqueteria';
+export type ShippingMethodType = 'pickup' | 'paqueteria' | 'rappi';
+
+export interface ZonedPricing {
+  local:    number;   // Jalisco, Michoacán, Colima, Nayarit
+  regional: number;   // Bajío, Norte cercano (Sinaloa, SLP, Zacatecas…)
+  centro:   number;   // CDMX, Puebla, EdoMex, Hidalgo, Morelos…
+  lejano:   number;   // Norte, Sur, Sureste
+}
 
 export interface ShippingMethod {
   type: ShippingMethodType;
   label: string;
   enabled: boolean;
-  cost: number;          // 0 = gratis
+  cost: number;           // pickup → 0; rappi → editable; paqueteria → ignorado (usa zonedPricing)
   description: string;
+  zonedPricing?: ZonedPricing;
 }
 
 export interface BankInfo {
@@ -72,9 +80,28 @@ interface SupplierContextType {
 
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
   shippingMethods: [
-    { type: 'pickup',     label: 'Recoger en tienda',            enabled: true,  cost: 0,   description: 'Sin costo adicional' },
-    { type: 'centro',     label: 'Punto centro de distribución', enabled: true,  cost: 50,  description: 'Entrega en punto MARIASCLUB' },
-    { type: 'paqueteria', label: 'Paquetería',                   enabled: false, cost: 120, description: 'Envío a domicilio por paquetería' },
+    {
+      type: 'pickup',
+      label: 'Recoger en tienda',
+      enabled: true,
+      cost: 0,
+      description: 'El cliente pasa a recoger su pedido en la tienda',
+    },
+    {
+      type: 'paqueteria',
+      label: 'Paquetería',
+      enabled: false,
+      cost: 0,
+      description: 'Envío a domicilio — costo varía según zona del país',
+      zonedPricing: { local: 80, regional: 120, centro: 160, lejano: 200 },
+    },
+    {
+      type: 'rappi',
+      label: 'Entrega local (Rappi / moto)',
+      enabled: false,
+      cost: 99,
+      description: 'Entrega el mismo día en tu localidad',
+    },
   ],
   bankInfo: {
     beneficiary: '',
@@ -133,11 +160,24 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
       const savedInventory = localStorage.getItem(LS_INVENTORY);
       if (savedProfile) {
         const parsed = JSON.parse(savedProfile);
-        // Merge defensivo para usuarios con perfil guardado sin storeConfig
+        // Merge defensivo: mapear métodos guardados sobre los defaults por type,
+        // ignorando tipos obsoletos (ej. 'centro') y preservando zonedPricing
+        const mergedMethods = DEFAULT_STORE_CONFIG.shippingMethods.map((def) => {
+          const saved = (parsed.storeConfig?.shippingMethods ?? []).find(
+            (m: ShippingMethod) => m.type === def.type,
+          );
+          if (!saved) return def;
+          return { ...def, ...saved, zonedPricing: saved.zonedPricing ?? def.zonedPricing };
+        });
         setProfile({
           ...DEFAULT_PROFILE,
           ...parsed,
-          storeConfig: { ...DEFAULT_STORE_CONFIG, ...(parsed.storeConfig ?? {}), bankInfo: { ...DEFAULT_STORE_CONFIG.bankInfo, ...(parsed.storeConfig?.bankInfo ?? {}) } },
+          storeConfig: {
+            ...DEFAULT_STORE_CONFIG,
+            ...(parsed.storeConfig ?? {}),
+            bankInfo: { ...DEFAULT_STORE_CONFIG.bankInfo, ...(parsed.storeConfig?.bankInfo ?? {}) },
+            shippingMethods: mergedMethods,
+          },
         });
       }
       if (savedInventory) setInventory(JSON.parse(savedInventory));
