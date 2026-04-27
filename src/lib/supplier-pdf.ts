@@ -282,10 +282,11 @@ export function buildWhatsAppUrl(params: {
   whatsappNumber: string;
   orderId: string;
   storeName: string;
-  customer: { name: string; phone: string; address: string };
+  customer: { name: string; phone: string; email?: string; address: string };
   items: Array<{ name: string; qty: number; price: number }>;
   shippingMethod: string;
   shippingCost: number;
+  subtotal: number;
   total: number;
   bankInfo: BankInfo;
   paymentMethod?: 'transfer' | 'cash';
@@ -294,37 +295,48 @@ export function buildWhatsAppUrl(params: {
 
   const lines = [
     `*NUEVO PEDIDO — ${params.storeName}*`,
-    `Pedido: ${params.orderId}`,
+    `Pedido: *${params.orderId}*`,
     `Fecha: ${new Date().toLocaleDateString('es-MX')}`,
     ``,
-    `*CLIENTE*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `*DATOS DEL CLIENTE*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
     `Nombre: ${params.customer.name}`,
     `Teléfono: ${params.customer.phone}`,
+    ...(params.customer.email ? [`Correo: ${params.customer.email}`] : []),
     `Dirección: ${params.customer.address}`,
     ``,
-    `*PRODUCTOS*`,
-    ...params.items.map((i) => `• ${i.name} × ${i.qty} = $${(i.price * i.qty).toFixed(2)}`),
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `*PRODUCTOS SOLICITADOS*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    ...params.items.map(
+      (i) => `• ${i.name}\n  ${i.qty} pza × $${i.price.toFixed(2)} = *$${(i.price * i.qty).toFixed(2)} MXN*`
+    ),
     ``,
-    `*Envío:* ${params.shippingMethod} — ${params.shippingCost === 0 ? 'Gratis' : `$${params.shippingCost.toFixed(2)}`}`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `*RESUMEN DE COSTOS*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `Subtotal productos: $${params.subtotal.toFixed(2)} MXN`,
+    `Envío (${params.shippingMethod}): ${params.shippingCost === 0 ? 'Gratis' : `$${params.shippingCost.toFixed(2)} MXN`}`,
     `*TOTAL A PAGAR: $${params.total.toFixed(2)} MXN*`,
     ``,
-    `*FORMA DE PAGO:* ${isCash ? 'Efectivo en tienda' : 'Transferencia bancaria'}`,
-    ``,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `*FORMA DE PAGO: ${isCash ? 'Efectivo en tienda' : 'Transferencia bancaria'}*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
     ...(isCash ? [
-      `ℹ️ El pedido se entregará al momento de realizar el pago en efectivo en la tienda.`,
+      `El cliente pagará en efectivo al recoger o recibir su pedido en la tienda.`,
     ] : [
       ...(params.bankInfo.bank ? [
-        `*DATOS PARA TRANSFERENCIA*`,
-        ...(params.bankInfo.beneficiary ? [`Beneficiario: ${params.bankInfo.beneficiary}`] : []),
-        `Banco: ${params.bankInfo.bank}`,
-        ...(params.bankInfo.accountNumber ? [`Cuenta: ${params.bankInfo.accountNumber}`] : []),
-        ...(params.bankInfo.clabe ? [`CLABE: ${params.bankInfo.clabe}`] : []),
+        ...(params.bankInfo.beneficiary ? [`Beneficiario: *${params.bankInfo.beneficiary}*`] : []),
+        `Banco: *${params.bankInfo.bank}*`,
+        ...(params.bankInfo.accountNumber ? [`No. cuenta: *${params.bankInfo.accountNumber}*`] : []),
+        ...(params.bankInfo.clabe ? [`CLABE: *${params.bankInfo.clabe}*`] : []),
         ...(params.bankInfo.concept ? [`Concepto: ${params.bankInfo.concept} ${params.orderId}`] : []),
         ``,
-        `📎 Adjunta el PDF y el comprobante de transferencia para confirmar tu pedido.`,
+        `📎 El cliente debe adjuntar el comprobante de transferencia a este mensaje.`,
         `⏱ Confirmación en máximo 6 horas hábiles.`,
       ] : [
-        `_El proveedor compartirá los datos de transferencia para realizar el pago._`,
+        `El proveedor compartirá los datos bancarios para el pago.`,
       ]),
     ]),
   ];

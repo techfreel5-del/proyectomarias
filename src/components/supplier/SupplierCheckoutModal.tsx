@@ -95,6 +95,9 @@ export function SupplierCheckoutModal({ cart, profile, onClose, onSuccess }: Pro
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [transferPopupOpen, setTransferPopupOpen] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState('');
+  const [confirmedCart, setConfirmedCart] = useState<CartItem[]>([]);
+  const [confirmedSubtotal, setConfirmedSubtotal] = useState(0);
+  const [confirmedTotal, setConfirmedTotal] = useState(0);
   const [formError, setFormError] = useState('');
   const [downloading, setDownloading] = useState(false);
 
@@ -123,6 +126,11 @@ export function SupplierCheckoutModal({ cart, profile, onClose, onSuccess }: Pro
   const handleConfirm = () => {
     if (!paymentMethod) return;
     const orderId = generateOrderId();
+
+    // Guardar snapshot del carrito ANTES de que onSuccess lo limpie
+    setConfirmedCart([...cart]);
+    setConfirmedSubtotal(subtotal);
+    setConfirmedTotal(total);
 
     saveOrder({
       id: orderId,
@@ -166,11 +174,11 @@ export function SupplierCheckoutModal({ cart, profile, onClose, onSuccess }: Pro
         storePhone: profile.phone,
         storeEmail: profile.email,
         customer: { name: form.name, phone: form.phone, email: form.email, address: form.address },
-        items: cart.map((i) => ({ name: i.product.name, qty: i.qty, price: i.product.price })),
-        subtotal,
+        items: confirmedCart.map((i) => ({ name: i.product.name, qty: i.qty, price: i.product.price })),
+        subtotal: confirmedSubtotal,
         shippingMethod: selectedShipping?.label ?? '',
         shippingCost,
-        total,
+        total: confirmedTotal,
         bankInfo,
         paymentMethod: paymentMethod ?? 'transfer',
       });
@@ -185,11 +193,12 @@ export function SupplierCheckoutModal({ cart, profile, onClose, onSuccess }: Pro
       whatsappNumber: wa,
       orderId: confirmedOrderId,
       storeName: profile.storeName,
-      customer: { name: form.name, phone: form.phone, address: form.address },
-      items: cart.map((i) => ({ name: i.product.name, qty: i.qty, price: i.product.price })),
+      customer: { name: form.name, phone: form.phone, email: form.email, address: form.address },
+      items: confirmedCart.map((i) => ({ name: i.product.name, qty: i.qty, price: i.product.price })),
       shippingMethod: selectedShipping?.label ?? '',
       shippingCost,
-      total,
+      subtotal: confirmedSubtotal,
+      total: confirmedTotal,
       bankInfo,
       paymentMethod: paymentMethod ?? 'transfer',
     });
