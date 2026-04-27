@@ -12,6 +12,7 @@ import {
   getOrders, subscribeOrders, LocalOrder,
   STATUS_LABELS, STATUS_COLORS,
 } from '@/lib/orders-store';
+import { getSupplierWholesaleRate } from '@/lib/pricing-store';
 
 export default function SupplierDashboard() {
   const { inventory, profile, lowStockCount } = useSupplier();
@@ -33,7 +34,7 @@ export default function SupplierDashboard() {
   const lowStock = inventory.filter((p) => p.active && p.stock <= p.lowStockThreshold);
 
   const supplierId = user?.supplierId ?? '';
-  const wholesaleRate = profile.wholesaleRate ?? 70;
+  const wholesaleRate = getSupplierWholesaleRate(supplierId);
 
   /* ── Separar pedidos ────────────────────────────────────── */
   // Pedidos de MariasClub: tienen supplierPackages y el paquete pertenece a este proveedor
@@ -181,7 +182,7 @@ export default function SupplierDashboard() {
                                   <p className="font-semibold">${(item.price * item.qty).toFixed(2)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-[#00C9B1]">Mayoreo ({wholesaleRate}%)</p>
+                                  <p className="text-[10px] text-[#00C9B1]">A cobrar</p>
                                   <p className="font-bold text-[#00C9B1]">${(item.price * item.qty * wholesaleRate / 100).toFixed(2)}</p>
                                 </div>
                               </div>
@@ -356,9 +357,7 @@ export default function SupplierDashboard() {
 
         <p className="px-5 pt-3 pb-0 text-[10px] text-[#8F8780] font-body">
           Información confidencial. Solo visible para ti y el administrador de MARIASCLUB™.
-          Tarifa de mayoreo configurada: <span className="font-bold text-[#0A0A0A]">{wholesaleRate}%</span> del precio menudeo.
-          Puedes modificarla en{' '}
-          <Link href="/supplier/perfil" className="text-[#8B5CF6] hover:underline">Perfil</Link>.
+          Los montos reflejan el importe que recibirás por tus ventas en la plataforma.
         </p>
 
         {/* Totales */}
@@ -510,7 +509,7 @@ export default function SupplierDashboard() {
               href="/supplier/perfil"
               className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#F7F6F5] text-sm font-semibold text-[#0A0A0A] hover:bg-[#EDEBE8] transition-colors"
             >
-              Configurar perfil y tarifa mayoreo
+              Configurar perfil
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

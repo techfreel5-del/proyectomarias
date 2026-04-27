@@ -50,7 +50,6 @@ export interface SupplierProfile {
   bannerUrl: string;
   showPoweredBy: boolean;
   storeConfig: StoreConfig;
-  wholesaleRate: number;  // % del precio menudeo que MariasClub paga al proveedor (ej. 70 = 70%)
 }
 
 export interface InventoryProduct {
@@ -127,7 +126,6 @@ const DEFAULT_PROFILE: SupplierProfile = {
   bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=70',
   showPoweredBy: true,
   storeConfig: DEFAULT_STORE_CONFIG,
-  wholesaleRate: 70,
 };
 
 const DEFAULT_INVENTORY: InventoryProduct[] = posProducts.map((p) => ({
@@ -174,7 +172,6 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
         setProfile({
           ...DEFAULT_PROFILE,
           ...parsed,
-          wholesaleRate: parsed.wholesaleRate ?? DEFAULT_PROFILE.wholesaleRate,
           storeConfig: {
             ...DEFAULT_STORE_CONFIG,
             ...(parsed.storeConfig ?? {}),
