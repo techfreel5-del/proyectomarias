@@ -44,6 +44,9 @@ export interface LocalOrder {
   deliveryType?: 'domicilio' | 'punto_acordado';
   paymentCollectedMethod?: 'cash' | 'card';
   supplierPackages?: SupplierPackage[];
+  // Pagos del proveedor: Record<supplierId, {status, paidAt?}>
+  // Solo visible para admin y el proveedor correspondiente
+  supplierPayments?: Record<string, { status: 'pending' | 'paid'; paidAt?: string }>;
 }
 
 const KEY = 'mc_orders';
@@ -140,6 +143,34 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   delivered: 'Entregado',
   returned: 'Devuelto',
 };
+
+/** Marcar pago del proveedor como saldado (solo admin) */
+export function markSupplierPaid(orderId: string, supplierId: string): void {
+  const orders = getOrders();
+  const idx = orders.findIndex((o) => o.id === orderId);
+  if (idx === -1) return;
+  orders[idx] = {
+    ...orders[idx],
+    supplierPayments: {
+      ...(orders[idx].supplierPayments ?? {}),
+      [supplierId]: { status: 'paid', paidAt: new Date().toISOString() },
+    },
+  };
+  localStorage.setItem(KEY, JSON.stringify(orders));
+  notify();
+}
+
+/** Desmarcar pago del proveedor (solo admin) */
+export function unmarkSupplierPaid(orderId: string, supplierId: string): void {
+  const orders = getOrders();
+  const idx = orders.findIndex((o) => o.id === orderId);
+  if (idx === -1) return;
+  const payments = { ...(orders[idx].supplierPayments ?? {}) };
+  delete payments[supplierId];
+  orders[idx] = { ...orders[idx], supplierPayments: payments };
+  localStorage.setItem(KEY, JSON.stringify(orders));
+  notify();
+}
 
 export const STATUS_COLORS: Record<OrderStatus, string> = {
   pending: 'text-orange-600 bg-orange-50 border-orange-200',

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { Upload, X, Check, Store, Palette, Phone, Eye, Truck, Landmark, MessageCircle, Package } from 'lucide-react';
+import { Upload, X, Check, Store, Palette, Phone, Eye, Truck, Landmark, MessageCircle, Package, Lock } from 'lucide-react';
 import { useSupplier, ZonedPricing } from '@/lib/supplier-context';
 import Link from 'next/link';
 
@@ -346,6 +346,46 @@ export default function PerfilPage() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* Tarifa de mayoreo — sección privada */}
+        <section className="bg-white border border-purple-100 rounded-2xl p-6">
+          <h2 className="text-sm font-bold text-[#0A0A0A] flex items-center gap-2 mb-2">
+            <Lock className="h-4 w-4 text-[#8B5CF6]" />
+            Tarifa de mayoreo con MariasClub
+            <span className="text-[10px] text-[#8B5CF6] font-bold bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full">
+              Privado
+            </span>
+          </h2>
+          <p className="text-xs text-[#8F8780] font-body mb-5">
+            Porcentaje del precio menudeo que recibes de MariasClub por cada venta en su plataforma.
+            Esta información es confidencial — solo tú y el admin la ven.
+          </p>
+          <div className="flex items-center gap-4">
+            <div className="flex-1 max-w-xs">
+              <label className={labelCls}>Tarifa (% del precio menudeo)</label>
+              <div className="flex items-center border border-[#EDEBE8] rounded-lg overflow-hidden focus-within:border-[#8B5CF6]">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={form.wholesaleRate ?? 70}
+                  onChange={(e) => setForm({ ...form, wholesaleRate: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                  className="flex-1 px-3 py-2.5 text-sm font-body text-[#0A0A0A] focus:outline-none bg-white"
+                />
+                <span className="px-3 py-2.5 text-sm text-[#8F8780] bg-[#F7F6F5] border-l border-[#EDEBE8] font-body">%</span>
+              </div>
+            </div>
+            <div className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 text-sm">
+              <p className="text-xs text-[#8F8780] font-body mb-0.5">Ejemplo: producto a $100 MXN</p>
+              <p className="font-bold text-[#0A0A0A]">
+                Recibes: <span className="text-[#8B5CF6]">${((form.wholesaleRate ?? 70)).toFixed(0)} MXN</span>
+              </p>
+              <p className="text-[10px] text-[#8F8780] font-body mt-0.5">
+                MariasClub retiene: ${(100 - (form.wholesaleRate ?? 70)).toFixed(0)} MXN
+              </p>
+            </div>
           </div>
         </section>
 

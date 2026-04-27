@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import {
-  getOrders, updateOrderStatus, LocalOrder, OrderStatus,
-  STATUS_LABELS, STATUS_COLORS, subscribeOrders,
+  getOrders, updateOrderStatus, markSupplierPaid, unmarkSupplierPaid,
+  LocalOrder, OrderStatus, STATUS_LABELS, STATUS_COLORS, subscribeOrders,
 } from '@/lib/orders-store';
 import { Package, ChevronDown, RefreshCw, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
@@ -179,6 +179,51 @@ export default function AdminOrdersPage() {
                                     </span>
                                   </div>
                                 ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Pagos a proveedores — solo para pedidos MariasClub con paquetes */}
+                          {order.supplierPackages && order.supplierPackages.length > 0 && (
+                            <div>
+                              <p className="font-semibold text-[#0A0A0A] mb-1">Pagos a proveedores</p>
+                              <div className="space-y-1.5">
+                                {order.supplierPackages.map((pkg) => {
+                                  const isPaid = order.supplierPayments?.[pkg.supplierId]?.status === 'paid';
+                                  const paidAt = order.supplierPayments?.[pkg.supplierId]?.paidAt;
+                                  return (
+                                    <div key={pkg.supplierId} className="flex items-center justify-between bg-[#F7F6F5] rounded-lg px-3 py-2 gap-3">
+                                      <div className="min-w-0">
+                                        <p className="font-semibold text-[#0A0A0A] text-xs">{pkg.supplierName}</p>
+                                        {isPaid && paidAt && (
+                                          <p className="text-[10px] text-green-600">
+                                            Pagado el {new Date(paidAt).toLocaleDateString('es-MX')}
+                                          </p>
+                                        )}
+                                      </div>
+                                      {isPaid ? (
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                          <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                                            Saldado
+                                          </span>
+                                          <button
+                                            onClick={() => { unmarkSupplierPaid(order.id, pkg.supplierId); refresh(); }}
+                                            className="text-[10px] text-[#8F8780] hover:text-red-500 transition-colors underline"
+                                          >
+                                            Deshacer
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => { markSupplierPaid(order.id, pkg.supplierId); refresh(); }}
+                                          className="flex-shrink-0 text-[10px] font-bold text-white bg-[#8B5CF6] hover:bg-[#7C3AED] px-3 py-1.5 rounded-lg transition-colors"
+                                        >
+                                          Marcar pagado
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
