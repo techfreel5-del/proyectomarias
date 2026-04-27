@@ -228,7 +228,7 @@ export default function PublicStorePage() {
           cart={cart}
           profile={profile}
           onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => { setCart([]); setCheckoutOpen(false); setCartOpen(false); }}
+          onSuccess={() => { setCart([]); setCartOpen(false); }}
         />
       )}
 
