@@ -3,15 +3,19 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { ShoppingBag, Search, Phone, Mail, MapPin, ShoppingCart, Plus, X, Minus } from 'lucide-react';
-import { SupplierProfile, InventoryProduct, DEFAULT_STORE_CONFIG } from '@/lib/supplier-context';
+import { SupplierProfile, InventoryProduct } from '@/lib/supplier-context';
 import { SupplierCheckoutModal } from '@/components/supplier/SupplierCheckoutModal';
-
-const LS_PROFILE = 'mc_supplier_profile';
-const LS_INVENTORY = 'mc_supplier_inventory';
+import { getSuppliers } from '@/lib/suppliers-store';
+import { use } from 'react';
 
 interface CartItem { product: InventoryProduct; qty: number; }
 
-export default function PublicStorePage() {
+export default function PublicStorePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = use(params);
   const [profile, setProfile] = useState<SupplierProfile | null>(null);
   const [inventory, setInventory] = useState<InventoryProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -21,23 +25,13 @@ export default function PublicStorePage() {
   const [filterCat, setFilterCat] = useState('');
 
   useEffect(() => {
-    try {
-      const p = localStorage.getItem(LS_PROFILE);
-      const inv = localStorage.getItem(LS_INVENTORY);
-      if (p) {
-        const parsed = JSON.parse(p);
-        setProfile({
-          ...parsed,
-          storeConfig: {
-            ...DEFAULT_STORE_CONFIG,
-            ...(parsed.storeConfig ?? {}),
-            bankInfo: { ...DEFAULT_STORE_CONFIG.bankInfo, ...(parsed.storeConfig?.bankInfo ?? {}) },
-          },
-        });
-      }
-      if (inv) setInventory(JSON.parse(inv));
-    } catch { /* ignore */ }
-  }, []);
+    const allSuppliers = getSuppliers();
+    const record = allSuppliers.find((s) => s.profile.slug === slug);
+    if (record) {
+      setProfile(record.profile);
+      setInventory(record.inventory);
+    }
+  }, [slug]);
 
   if (!profile) {
     return (

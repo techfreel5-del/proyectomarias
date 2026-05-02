@@ -8,6 +8,7 @@ import { gsap } from '@/lib/gsap';
 import { Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { useAuth, type UserRole } from '@/lib/auth-context';
+import { findSupplierByEmail } from '@/lib/suppliers-store';
 
 const MOCK_USERS: { email: string; password: string; role: UserRole; name: string; redirect: string; supplierId?: string }[] = [
   { email: 'admin@mariasclub.com',          password: 'admin123',          role: 'admin',         name: 'Administrador',          redirect: '/admin' },
@@ -31,14 +32,36 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check static mock users first (admin, transportista, repartidor, cliente)
     const found = MOCK_USERS.find(u => u.email === email && u.password === password);
     if (found) {
       setError('');
       login({ email: found.email, role: found.role, name: found.name, redirect: found.redirect, supplierId: found.supplierId });
       router.push(found.redirect);
-    } else {
-      setError('Correo o contraseña incorrectos.');
+      return;
     }
+
+    // Check suppliers store (covers newly created suppliers + existing ones)
+    const supplierRecord = findSupplierByEmail(email);
+    if (supplierRecord && supplierRecord.password === password) {
+      if (!supplierRecord.active) {
+        setError('Esta cuenta de proveedor está desactivada. Contacta al administrador.');
+        return;
+      }
+      setError('');
+      login({
+        email: supplierRecord.email,
+        role: 'proveedor' as UserRole,
+        name: supplierRecord.displayName,
+        redirect: '/supplier',
+        supplierId: supplierRecord.id,
+      });
+      router.push('/supplier');
+      return;
+    }
+
+    setError('Correo o contraseña incorrectos.');
   };
 
   /* ── Mount animation ──────────────────────────────────────── */

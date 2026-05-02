@@ -1,69 +1,26 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { posProducts } from './mock-data';
+import { useAuth } from './auth-context';
+import {
+  getSupplier,
+  updateSupplierProfile as storeUpdateProfile,
+  updateSupplierInventory as storeUpdateInventory,
+  DEFAULT_STORE_CONFIG,
+  type ShippingMethodType,
+  type ZonedPricing,
+  type ShippingMethod,
+  type BankInfo,
+  type StoreConfig,
+  type SupplierProfile,
+  type InventoryProduct,
+} from './suppliers-store';
 
-/* ── Types ────────────────────────────────────────────────── */
+// ─── Re-export types for backward compatibility ─────────────────
+export type { ShippingMethodType, ZonedPricing, ShippingMethod, BankInfo, StoreConfig, SupplierProfile, InventoryProduct };
+export { DEFAULT_STORE_CONFIG };
 
-export type ShippingMethodType = 'pickup' | 'paqueteria' | 'rappi';
-
-export interface ZonedPricing {
-  local:    number;   // Jalisco, Michoacán, Colima, Nayarit
-  regional: number;   // Bajío, Norte cercano (Sinaloa, SLP, Zacatecas…)
-  centro:   number;   // CDMX, Puebla, EdoMex, Hidalgo, Morelos…
-  lejano:   number;   // Norte, Sur, Sureste
-}
-
-export interface ShippingMethod {
-  type: ShippingMethodType;
-  label: string;
-  enabled: boolean;
-  cost: number;           // pickup → 0; rappi → editable; paqueteria → ignorado (usa zonedPricing)
-  description: string;
-  zonedPricing?: ZonedPricing;
-}
-
-export interface BankInfo {
-  beneficiary: string;
-  bank: string;
-  accountNumber: string;
-  clabe: string;
-  concept: string;
-}
-
-export interface StoreConfig {
-  shippingMethods: ShippingMethod[];
-  bankInfo: BankInfo;
-  whatsappNumber: string;  // formato: 5213511234567
-}
-
-export interface SupplierProfile {
-  storeName: string;
-  slug: string;
-  logo: string | null;        // base64 data URL
-  brandColor: string;         // hex
-  accentColor: string;        // hex
-  description: string;
-  email: string;
-  phone: string;
-  address: string;
-  bannerUrl: string;
-  showPoweredBy: boolean;
-  storeConfig: StoreConfig;
-}
-
-export interface InventoryProduct {
-  id: string;
-  sku: string;
-  name: string;
-  category: string;
-  price: number;
-  stock: number;
-  image: string;
-  description: string;
-  active: boolean;
-  lowStockThreshold: number;
-}
+// ─── Context type ──────────────────────────────────────────────
 
 interface SupplierContextType {
   profile: SupplierProfile;
@@ -76,126 +33,80 @@ interface SupplierContextType {
   lowStockCount: number;
 }
 
-/* ── Defaults ───────────────────────────────────────────────── */
+// ─── Fallback defaults (used when supplier not found in store) ──
 
-export const DEFAULT_STORE_CONFIG: StoreConfig = {
-  shippingMethods: [
-    {
-      type: 'pickup',
-      label: 'Recoger en tienda',
-      enabled: true,
-      cost: 0,
-      description: 'El cliente pasa a recoger su pedido en la tienda',
-    },
-    {
-      type: 'paqueteria',
-      label: 'Paquetería',
-      enabled: false,
-      cost: 0,
-      description: 'Envío a domicilio — costo varía según zona del país',
-      zonedPricing: { local: 80, regional: 120, centro: 160, lejano: 200 },
-    },
-    {
-      type: 'rappi',
-      label: 'Entrega local (Rappi / moto)',
-      enabled: false,
-      cost: 99,
-      description: 'Entrega el mismo día en tu localidad',
-    },
-  ],
-  bankInfo: {
-    beneficiary: '',
-    bank: '',
-    accountNumber: '',
-    clabe: '',
-    concept: 'Pedido tienda online',
-  },
-  whatsappNumber: '',
-};
-
-const DEFAULT_PROFILE: SupplierProfile = {
-  storeName: 'Proveedor Zamora S.A.',
-  slug: 'proveedor-zamora',
+const FALLBACK_PROFILE: SupplierProfile = {
+  storeName: 'Mi Tienda',
+  slug: 'mi-tienda',
   logo: null,
   brandColor: '#1E3A5F',
   accentColor: '#E8A020',
-  description: 'Distribuidor mayorista en Zamora, Michoacán. Productos de calidad para toda la región.',
-  email: 'ventas@proveedorzamora.mx',
-  phone: '+52 351 123 4567',
-  address: 'Av. Morelos 245, Zamora, Michoacán',
+  description: '',
+  email: '',
+  phone: '',
+  address: '',
   bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=70',
   showPoweredBy: true,
   storeConfig: DEFAULT_STORE_CONFIG,
 };
 
-const DEFAULT_INVENTORY: InventoryProduct[] = posProducts.map((p) => ({
-  id: p.id,
-  sku: p.sku,
-  name: p.name,
-  category: p.category,
-  price: Math.round((p.stock * 0.8 + 20) * 10) / 10,  // derived mock price
-  stock: p.stock,
-  image: p.image,
-  description: `Producto ${p.category.toLowerCase()} de alta calidad.`,
-  active: p.stock > 0,
-  lowStockThreshold: 10,
-}));
-
-/* ── Context ────────────────────────────────────────────────── */
+// ─── Context ───────────────────────────────────────────────────
 
 const SupplierContext = createContext<SupplierContextType | null>(null);
 
-const LS_PROFILE = 'mc_supplier_profile';
-const LS_INVENTORY = 'mc_supplier_inventory';
-
 export function SupplierProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<SupplierProfile>(DEFAULT_PROFILE);
-  const [inventory, setInventory] = useState<InventoryProduct[]>(DEFAULT_INVENTORY);
+  const { user } = useAuth();
+  const supplierId = user?.supplierId ?? '';
+
+  const [profile, setProfile] = useState<SupplierProfile>(FALLBACK_PROFILE);
+  const [inventory, setInventory] = useState<InventoryProduct[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  /* Load from localStorage on mount */
+  // Load supplier data from store on mount or when supplierId changes
   useEffect(() => {
-    try {
-      const savedProfile = localStorage.getItem(LS_PROFILE);
-      const savedInventory = localStorage.getItem(LS_INVENTORY);
-      if (savedProfile) {
-        const parsed = JSON.parse(savedProfile);
-        // Merge defensivo: mapear métodos guardados sobre los defaults por type,
-        // ignorando tipos obsoletos (ej. 'centro') y preservando zonedPricing
-        const mergedMethods = DEFAULT_STORE_CONFIG.shippingMethods.map((def) => {
-          const saved = (parsed.storeConfig?.shippingMethods ?? []).find(
-            (m: ShippingMethod) => m.type === def.type,
-          );
-          if (!saved) return def;
-          return { ...def, ...saved, zonedPricing: saved.zonedPricing ?? def.zonedPricing };
-        });
-        setProfile({
-          ...DEFAULT_PROFILE,
-          ...parsed,
-          storeConfig: {
-            ...DEFAULT_STORE_CONFIG,
-            ...(parsed.storeConfig ?? {}),
-            bankInfo: { ...DEFAULT_STORE_CONFIG.bankInfo, ...(parsed.storeConfig?.bankInfo ?? {}) },
-            shippingMethods: mergedMethods,
+    if (!supplierId) {
+      setHydrated(true);
+      return;
+    }
+    const record = getSupplier(supplierId);
+    if (record) {
+      // Merge shipping methods defensively (same logic as before)
+      const mergedMethods = DEFAULT_STORE_CONFIG.shippingMethods.map((def) => {
+        const saved = (record.profile.storeConfig?.shippingMethods ?? []).find(
+          (m) => m.type === def.type,
+        );
+        if (!saved) return def;
+        return { ...def, ...saved, zonedPricing: saved.zonedPricing ?? def.zonedPricing };
+      });
+      setProfile({
+        ...FALLBACK_PROFILE,
+        ...record.profile,
+        storeConfig: {
+          ...DEFAULT_STORE_CONFIG,
+          ...(record.profile.storeConfig ?? {}),
+          bankInfo: {
+            ...DEFAULT_STORE_CONFIG.bankInfo,
+            ...(record.profile.storeConfig?.bankInfo ?? {}),
           },
-        });
-      }
-      if (savedInventory) setInventory(JSON.parse(savedInventory));
-    } catch { /* ignore */ }
+          shippingMethods: mergedMethods,
+        },
+      });
+      setInventory(record.inventory);
+    }
     setHydrated(true);
-  }, []);
+  }, [supplierId]);
 
-  /* Persist profile changes */
+  // Persist profile changes to suppliers-store
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(LS_PROFILE, JSON.stringify(profile));
-  }, [profile, hydrated]);
+    if (!hydrated || !supplierId) return;
+    storeUpdateProfile(supplierId, profile);
+  }, [profile, hydrated, supplierId]);
 
-  /* Persist inventory changes */
+  // Persist inventory changes to suppliers-store
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(LS_INVENTORY, JSON.stringify(inventory));
-  }, [inventory, hydrated]);
+    if (!hydrated || !supplierId) return;
+    storeUpdateInventory(supplierId, inventory);
+  }, [inventory, hydrated, supplierId]);
 
   const updateProfile = useCallback((patch: Partial<SupplierProfile>) => {
     setProfile((prev) => ({ ...prev, ...patch }));
@@ -207,7 +118,7 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateProduct = useCallback((id: string, patch: Partial<InventoryProduct>) => {
-    setInventory((prev) => prev.map((p) => p.id === id ? { ...p, ...patch } : p));
+    setInventory((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }, []);
 
   const removeProduct = useCallback((id: string) => {
@@ -216,20 +127,27 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
 
   const adjustStock = useCallback((id: string, delta: number) => {
     setInventory((prev) =>
-      prev.map((p) => p.id === id ? { ...p, stock: Math.max(0, p.stock + delta) } : p)
+      prev.map((p) => (p.id === id ? { ...p, stock: Math.max(0, p.stock + delta) } : p)),
     );
   }, []);
 
   const lowStockCount = inventory.filter(
-    (p) => p.active && p.stock <= p.lowStockThreshold
+    (p) => p.active && p.stock <= p.lowStockThreshold,
   ).length;
 
   return (
-    <SupplierContext.Provider value={{
-      profile, inventory,
-      updateProfile, addProduct, updateProduct, removeProduct, adjustStock,
-      lowStockCount,
-    }}>
+    <SupplierContext.Provider
+      value={{
+        profile,
+        inventory,
+        updateProfile,
+        addProduct,
+        updateProduct,
+        removeProduct,
+        adjustStock,
+        lowStockCount,
+      }}
+    >
       {children}
     </SupplierContext.Provider>
   );

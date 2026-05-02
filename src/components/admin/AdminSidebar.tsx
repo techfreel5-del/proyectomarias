@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart2, DollarSign, MapPin, Package, TrendingUp } from 'lucide-react';
+import { BarChart2, DollarSign, MapPin, Package, TrendingUp, Users } from 'lucide-react';
 
 const sideNavItems = [
   { label: 'Resumen', href: '/admin', icon: BarChart2 },
+  { label: 'Proveedores', href: '/admin/suppliers', icon: Users },
   { label: 'Motor de Precios', href: '/admin/pricing', icon: DollarSign },
   { label: 'Zonas', href: '/admin/zones', icon: MapPin },
   { label: 'Pedidos', href: '/admin/orders', icon: Package },
@@ -21,7 +22,9 @@ export function AdminSidebar() {
       <nav className="space-y-1 flex-1">
         {sideNavItems.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href;
+          const active = item.href === '/admin'
+            ? pathname === '/admin'
+            : pathname.startsWith(item.href);
           return (
             <Link
               key={item.label}
