@@ -29,28 +29,60 @@ interface DetectedItem {
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Unitalla'];
 const CATEGORIES = ['Fashion', 'Appliances', 'Electronics', 'Sports', 'Coffee', 'Hogar', 'Otro'];
 
-// ── Canvas crop helper (runs in browser) ─────────────────────────────────────
+// ── Canvas crop helper — efecto studio (runs in browser) ─────────────────────
+//
+// Genera un canvas cuadrado con fondo blanco/degradado suave y el producto
+// centrado con padding interior generoso, simulando una foto de estudio.
 
 function cropImageToDataURL(
   imgEl: HTMLImageElement,
   box: BoundingBox,
-  padding = 0.01,
 ): string {
   const iw = imgEl.naturalWidth;
   const ih = imgEl.naturalHeight;
 
-  const x = Math.max(0, (box.x - padding) * iw);
-  const y = Math.max(0, (box.y - padding) * ih);
-  const w = Math.min(iw - x, (box.w + padding * 2) * iw);
-  const h = Math.min(ih - y, (box.h + padding * 2) * ih);
+  // Región de recorte con padding del 5 % alrededor del artículo detectado
+  const pad = 0.05;
+  const srcX = Math.max(0, (box.x - pad) * iw);
+  const srcY = Math.max(0, (box.y - pad) * ih);
+  const srcW = Math.min(iw - srcX, (box.w + pad * 2) * iw);
+  const srcH = Math.min(ih - srcY, (box.h + pad * 2) * ih);
+
+  // Canvas cuadrado — tamaño basado en el lado más largo, entre 400 y 700 px
+  const side = Math.round(Math.min(700, Math.max(400, Math.max(srcW, srcH) * 1.15)));
 
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(w);
-  canvas.height = Math.round(h);
+  canvas.width = side;
+  canvas.height = side;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
-  ctx.drawImage(imgEl, x, y, w, h, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.88);
+
+  // Fondo: degradado radial blanco → gris muy claro (look studio/softbox)
+  const grad = ctx.createRadialGradient(side / 2, side / 2, 0, side / 2, side / 2, side * 0.75);
+  grad.addColorStop(0, '#FFFFFF');
+  grad.addColorStop(1, '#F0EFEE');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, side, side);
+
+  // Escalar el recorte para que quepa dentro del canvas con 10 % de margen interior
+  const innerPad = side * 0.10;
+  const availW = side - innerPad * 2;
+  const availH = side - innerPad * 2;
+  const scale = Math.min(availW / srcW, availH / srcH);
+  const dw = Math.round(srcW * scale);
+  const dh = Math.round(srcH * scale);
+  const dx = Math.round((side - dw) / 2);
+  const dy = Math.round((side - dh) / 2);
+
+  // Sombra sutil debajo del producto (simula superficie de estudio)
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.18)';
+  ctx.shadowBlur = Math.round(side * 0.06);
+  ctx.shadowOffsetY = Math.round(side * 0.025);
+  ctx.drawImage(imgEl, Math.round(srcX), Math.round(srcY), Math.round(srcW), Math.round(srcH), dx, dy, dw, dh);
+  ctx.restore();
+
+  return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────

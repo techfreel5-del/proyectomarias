@@ -38,24 +38,27 @@ export async function POST(req: NextRequest) {
             },
             {
               type: 'text',
-              text: `En esta imagen hay varios artículos de tipo "${tipo}" exhibidos juntos.
+              text: `Eres un sistema de detección de objetos para fotografía de productos de tipo "${tipo}".
 
-Tu tarea: detectar CADA artículo individual visible y devolver su ubicación en la imagen.
+PASO 1 — Examina la imagen y cuenta con precisión cuántos artículos individuales distintos hay visibles (aunque sean del mismo modelo, cada unidad física cuenta por separado).
 
-Devuelve ÚNICAMENTE un JSON array válido, sin texto adicional ni bloques de código:
+PASO 2 — Para cada artículo, traza una caja ajustada SOLO al contorno del producto:
+  • La caja debe envolver el artículo con 1-2% de margen extra. Nada más.
+  • NO incluyas artículos vecinos dentro de la caja.
+  • Las cajas NO deben solaparse entre sí.
+  • Si un artículo está parcialmente tapado, traza la caja alrededor de la parte visible.
+
+FORMATO DE RESPUESTA — Devuelve ÚNICAMENTE el JSON array, sin texto, sin bloques de código:
 [
-  { "x": 0.05, "y": 0.10, "w": 0.20, "h": 0.35 },
-  { "x": 0.30, "y": 0.10, "w": 0.18, "h": 0.33 }
+  { "x": 0.05, "y": 0.10, "w": 0.18, "h": 0.32 },
+  { "x": 0.30, "y": 0.08, "w": 0.20, "h": 0.35 }
 ]
 
-Reglas:
-- x, y: esquina superior izquierda del artículo como proporción del ancho/alto total (0.0 a 1.0)
-- w, h: ancho y alto del artículo como proporción del ancho/alto total (0.0 a 1.0)
-- Incluye un pequeño margen alrededor de cada artículo (~0.01 a 0.02)
-- Si ves 5 artículos distintos, devuelve 5 entradas
-- Si ves el mismo modelo repetido, devuelve una entrada por cada unidad visible
-- Todos los valores deben estar entre 0.0 y 1.0
-- Responde SOLO con el JSON array, sin ningún texto adicional`,
+Donde:
+- x, y = esquina superior-izquierda del artículo (proporción 0.0–1.0 del tamaño total de la imagen)
+- w, h = ancho y alto del artículo (proporción 0.0–1.0)
+- Cada caja = exactamente 1 artículo físico
+- Cero texto adicional`,
             },
           ],
         },
@@ -86,7 +89,7 @@ Reglas:
     }
 
     // Validate and clamp all values to [0, 1]
-    const valid = boxes
+    const clamped = boxes
       .filter((b) => typeof b.x === 'number' && typeof b.y === 'number' && typeof b.w === 'number' && typeof b.h === 'number')
       .map((b) => ({
         x: Math.max(0, Math.min(1, b.x)),
@@ -94,8 +97,25 @@ Reglas:
         w: Math.max(0.02, Math.min(1, b.w)),
         h: Math.max(0.02, Math.min(1, b.h)),
       }))
-      // Remove boxes that are unreasonably small (less than 2% of image)
       .filter((b) => b.w * b.h > 0.001);
+
+    // Non-maximum suppression: elimina cajas muy solapadas (IoU > 0.25)
+    // Conserva las más grandes (más probable que sean el artículo completo)
+    const sorted = [...clamped].sort((a, b) => (b.w * b.h) - (a.w * a.h));
+    const valid: typeof sorted = [];
+    for (const box of sorted) {
+      const overlaps = valid.some((kept) => {
+        const ix1 = Math.max(box.x, kept.x);
+        const iy1 = Math.max(box.y, kept.y);
+        const ix2 = Math.min(box.x + box.w, kept.x + kept.w);
+        const iy2 = Math.min(box.y + box.h, kept.y + kept.h);
+        if (ix2 <= ix1 || iy2 <= iy1) return false;
+        const inter = (ix2 - ix1) * (iy2 - iy1);
+        const union = box.w * box.h + kept.w * kept.h - inter;
+        return inter / union > 0.25;
+      });
+      if (!overlaps) valid.push(box);
+    }
 
     if (valid.length === 0) {
       return NextResponse.json(
