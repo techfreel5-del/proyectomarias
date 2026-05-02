@@ -100,8 +100,6 @@ function StoreHeader({ profile, t, categories, activeCategory, onCategoryClick, 
     prevQty.current = cartQty;
   }, { dependencies: [cartQty] });
 
-  const cardRadiusForBtn = t.cardStyle === undefined ? '9999px' : '9999px';
-
   return (
     <header
       ref={headerRef}
@@ -599,7 +597,7 @@ function ProductDetailModal({ product, profile, t, onClose, onAddToCart }: Detai
     return () => window.removeEventListener('keydown', onKey);
   }, [handleClose]);
 
-  const cardRadius = product.cardStyle === 'square' ? '2px' : t.cardRadius;
+  const cardRadius = t.cardRadius;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
