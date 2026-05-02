@@ -4,8 +4,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import {
   ShoppingBag, Search, Phone, Mail, MapPin, X, Plus, Minus,
-  ChevronLeft, ChevronRight, Play, Eye, Instagram, ArrowDown,
-  ShoppingCart,
+  ChevronLeft, ChevronRight, Play, Eye, ArrowDown,
+  ShoppingCart, Link2,
 } from 'lucide-react';
 import { useGSAP } from '@gsap/react';
 import { gsap, ScrollTrigger, SplitText } from '@/lib/gsap';
@@ -967,7 +967,7 @@ function StoreFooter({ profile, t }: { profile: SupplierProfile; t: ThemeTokens 
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-70"
                   style={{ backgroundColor: t.bgCard, border: `1px solid ${t.cardBorderColor}`, color: t.textPrimary }}
                 >
-                  <Instagram className="h-3.5 w-3.5" /> Instagram
+                  <Link2 className="h-3.5 w-3.5" /> Instagram
                 </a>
               )}
               {profile.facebookUrl && (
