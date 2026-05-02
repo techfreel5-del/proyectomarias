@@ -87,6 +87,7 @@ export interface InventoryProduct {
   description: string;
   active: boolean;
   lowStockThreshold: number;
+  pendingApproval?: boolean; // true = requiere aprobación admin antes de aparecer en tienda
   videoUrl?: string;       // YouTube, Vimeo o enlace directo mp4
   videoFile?: string;      // base64 de archivo de video subido
   hasVariants?: boolean;

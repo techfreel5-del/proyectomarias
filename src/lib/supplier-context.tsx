@@ -126,7 +126,8 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
 
   const addProduct = useCallback((product: Omit<InventoryProduct, 'id'>) => {
     const id = `p-${Date.now()}`;
-    setInventory((prev) => [...prev, { ...product, id }]);
+    // Todos los productos nuevos de proveedores quedan pendientes de aprobación admin
+    setInventory((prev) => [...prev, { ...product, id, pendingApproval: true, active: false }]);
   }, []);
 
   const updateProduct = useCallback((id: string, patch: Partial<InventoryProduct>) => {

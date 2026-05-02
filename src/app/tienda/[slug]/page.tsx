@@ -13,6 +13,7 @@ import { type SupplierProfile, type InventoryProduct, type ProductVariant } from
 import { SupplierCheckoutModal } from '@/components/supplier/SupplierCheckoutModal';
 import { getSuppliers } from '@/lib/suppliers-store';
 import { getTheme, type ThemeTokens } from '@/lib/store-themes';
+import { getEffectivePrice } from '@/lib/pricing-store';
 import { use } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -435,7 +436,7 @@ function ProductCard({ product, profile, t, cardStyle, onViewDetail, onAddToCart
         >
           {product.name}
         </button>
-        <p className="text-lg font-black mb-3" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
+        <p className="text-lg font-black mb-3" style={{ color: profile.accentColor }}>${getEffectivePrice(product.id, product.price).toFixed(2)}</p>
         {hasVariants ? (
           <button
             onClick={() => onViewDetail(product)}
@@ -695,7 +696,7 @@ function ProductDetailModal({ product, profile, t, onClose, onAddToCart }: Detai
           <div className="px-5 pb-6 space-y-4 flex-1">
             <div>
               <h2 className="text-xl font-bold leading-tight" style={{ color: t.textPrimary, fontFamily: t.fontHeadline, fontStyle: t.headlineStyle }}>{product.name}</h2>
-              <p className="text-2xl font-black mt-1.5" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
+              <p className="text-2xl font-black mt-1.5" style={{ color: profile.accentColor }}>${getEffectivePrice(product.id, product.price).toFixed(2)}</p>
             </div>
 
             {product.description && (
@@ -1058,7 +1059,7 @@ export default function PublicStorePage({
 
   const t = getTheme(profile.storeTheme);
   const cardStyle = profile.cardStyle ?? 'rounded';
-  const activeProducts = inventory.filter((p) => p.active && p.stock > 0);
+  const activeProducts = inventory.filter((p) => !p.pendingApproval && p.active && p.stock > 0);
   const categories = Array.from(new Set(activeProducts.map((p) => p.category)));
   const filtered = activeProducts.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());

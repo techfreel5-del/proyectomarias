@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { use } from 'react';
 import {
   ArrowLeft, Package, TrendingUp, AlertTriangle, DollarSign,
-  CheckCircle2, XCircle, ChevronLeft, ChevronRight,
+  CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clock,
 } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { getSupplier, type SupplierRecord, type InventoryProduct } from '@/lib/suppliers-store';
+import { getSupplier, updateSupplierInventory, type SupplierRecord, type InventoryProduct } from '@/lib/suppliers-store';
 
 const PAGE_SIZE = 15;
 
@@ -27,6 +27,34 @@ export default function AdminSupplierDetailPage({
     setRecord(r ?? null);
   }, [supplierId]);
 
+  // ── Aprobación de productos pendientes ──────────────────────────
+  function handleApprove(productId: string) {
+    if (!record) return;
+    const updated = record.inventory.map((p) =>
+      p.id === productId ? { ...p, pendingApproval: false, active: true } : p,
+    );
+    updateSupplierInventory(supplierId, updated);
+    setRecord({ ...record, inventory: updated });
+  }
+
+  function handleReject(productId: string) {
+    if (!record) return;
+    const updated = record.inventory.map((p) =>
+      p.id === productId ? { ...p, pendingApproval: false, active: false } : p,
+    );
+    updateSupplierInventory(supplierId, updated);
+    setRecord({ ...record, inventory: updated });
+  }
+
+  function handleApproveAll() {
+    if (!record) return;
+    const updated = record.inventory.map((p) =>
+      p.pendingApproval ? { ...p, pendingApproval: false, active: true } : p,
+    );
+    updateSupplierInventory(supplierId, updated);
+    setRecord({ ...record, inventory: updated });
+  }
+
   if (!record) {
     return (
       <div className="min-h-screen bg-[#FAFAFA] flex">
@@ -42,8 +70,11 @@ export default function AdminSupplierDetailPage({
 
   const { profile, inventory } = record;
 
+  /* ── Pendientes ──────────────────────────────────── */
+  const pendingProducts = inventory.filter((p) => p.pendingApproval);
+
   /* ── Stats ───────────────────────────────────────── */
-  const inStockCount = inventory.filter((p) => p.active && p.stock > 0).length;
+  const inStockCount = inventory.filter((p) => !p.pendingApproval && p.active && p.stock > 0).length;
   const lowStockItems = inventory.filter((p) => p.active && p.stock > 0 && p.stock <= p.lowStockThreshold);
   const outOfStock = inventory.filter((p) => p.stock === 0).length;
   const totalValue = inventory.reduce((s, p) => s + p.price * p.stock, 0);
@@ -130,6 +161,67 @@ export default function AdminSupplierDetailPage({
             </div>
           ))}
         </div>
+
+        {/* ── Pendientes de aprobación ─────────────────────────────────── */}
+        {pendingProducts.length > 0 && (
+          <div className="bg-white border border-amber-200 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between gap-3 flex-wrap bg-amber-50">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <h2 className="text-sm font-bold text-amber-800">Pendientes de aprobación</h2>
+                <span className="text-[10px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full">
+                  {pendingProducts.length}
+                </span>
+              </div>
+              <button
+                onClick={handleApproveAll}
+                className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Aprobar todos ({pendingProducts.length})
+              </button>
+            </div>
+            <div className="divide-y divide-[#F7F6F5]">
+              {pendingProducts.map((p) => (
+                <div key={p.id} className="flex items-center gap-4 px-5 py-3 hover:bg-[#FAFAFA]">
+                  {p.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image} alt={p.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-[#F7F6F5]" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-[#F7F6F5] flex items-center justify-center flex-shrink-0">
+                      <Package className="h-5 w-5 text-[#C0BAB2]" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-[#0A0A0A] text-sm truncate">{p.name}</p>
+                    <p className="text-xs text-[#8F8780] font-body">{p.sku} · {p.category} · costo ${fmtPrice(p.price)}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleApprove(p.id)}
+                      className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 text-xs font-bold rounded-lg hover:bg-green-100 transition-colors flex items-center gap-1"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Aprobar
+                    </button>
+                    <button
+                      onClick={() => handleReject(p.id)}
+                      className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 text-xs font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      Rechazar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-3 bg-amber-50 border-t border-amber-100">
+              <p className="text-[11px] text-amber-700 font-body">
+                Recuerda configurar el precio de menudeo en <a href="/admin/pricing" className="underline font-semibold">Panel de Precios</a> después de aprobar.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Alertas de stock bajo */}
         {lowStockItems.length > 0 && (

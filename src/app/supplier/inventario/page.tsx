@@ -394,12 +394,18 @@ export default function InventarioPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => updateProduct(p.id, { active: !p.active })}
-                          className={`relative w-10 h-5 rounded-full transition-colors ${p.active ? 'bg-[#10B981]' : 'bg-[#D9D5CF]'}`}
-                        >
-                          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${p.active ? 'left-5' : 'left-0.5'}`} />
-                        </button>
+                        {p.pendingApproval ? (
+                          <span className="text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            Pendiente
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => updateProduct(p.id, { active: !p.active })}
+                            className={`relative w-10 h-5 rounded-full transition-colors ${p.active ? 'bg-[#10B981]' : 'bg-[#D9D5CF]'}`}
+                          >
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${p.active ? 'left-5' : 'left-0.5'}`} />
+                          </button>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {p.hasVariants ? (
