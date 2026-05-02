@@ -8,6 +8,15 @@ import { products as catalogProducts } from './mock-data';
 
 export type ShippingMethodType = 'pickup' | 'paqueteria' | 'rappi';
 
+export type VariantType = 'color-talla' | 'color' | 'talla' | 'tamaño' | 'none';
+
+export interface ProductVariant {
+  id: string;
+  color?: string;
+  size?: string;
+  stock: number;
+}
+
 export interface ZonedPricing {
   local:    number;
   regional: number;
@@ -60,10 +69,16 @@ export interface InventoryProduct {
   category: string;
   price: number;
   stock: number;
-  image: string;
+  image: string;           // backward compat — primera imagen
+  images?: string[];       // múltiples imágenes (base64 o URLs externas)
   description: string;
   active: boolean;
   lowStockThreshold: number;
+  videoUrl?: string;       // YouTube, Vimeo o enlace directo mp4
+  videoFile?: string;      // base64 de archivo de video subido
+  hasVariants?: boolean;
+  variantType?: VariantType;
+  variants?: ProductVariant[];
 }
 
 export interface SupplierRecord {
@@ -127,9 +142,14 @@ function makeInventoryFromCatalog(supplierId: string): InventoryProduct[] {
       price: p.price,
       stock: 10 + ((i * 13 + 7) % 45),   // varied mock stock
       image: p.images[0],
+      images: p.images,
       description: p.description,
       active: p.inStock,
       lowStockThreshold: 10,
+      videoUrl: '',
+      hasVariants: false,
+      variantType: 'none' as VariantType,
+      variants: [],
     }));
 }
 

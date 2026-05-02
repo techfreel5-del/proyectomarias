@@ -14,10 +14,12 @@ import {
   type StoreConfig,
   type SupplierProfile,
   type InventoryProduct,
+  type VariantType,
+  type ProductVariant,
 } from './suppliers-store';
 
 // ─── Re-export types for backward compatibility ─────────────────
-export type { ShippingMethodType, ZonedPricing, ShippingMethod, BankInfo, StoreConfig, SupplierProfile, InventoryProduct };
+export type { ShippingMethodType, ZonedPricing, ShippingMethod, BankInfo, StoreConfig, SupplierProfile, InventoryProduct, VariantType, ProductVariant };
 export { DEFAULT_STORE_CONFIG };
 
 // ─── Context type ──────────────────────────────────────────────

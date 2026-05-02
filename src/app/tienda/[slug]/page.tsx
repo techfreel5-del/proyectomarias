@@ -1,14 +1,320 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { ShoppingBag, Search, Phone, Mail, MapPin, ShoppingCart, Plus, X, Minus } from 'lucide-react';
-import { SupplierProfile, InventoryProduct } from '@/lib/supplier-context';
+import {
+  ShoppingBag, Search, Phone, Mail, MapPin, ShoppingCart,
+  Plus, X, Minus, ChevronLeft, ChevronRight, Play, Eye,
+} from 'lucide-react';
+import { type SupplierProfile, type InventoryProduct, type ProductVariant } from '@/lib/supplier-context';
 import { SupplierCheckoutModal } from '@/components/supplier/SupplierCheckoutModal';
 import { getSuppliers } from '@/lib/suppliers-store';
 import { use } from 'react';
 
-interface CartItem { product: InventoryProduct; qty: number; }
+// ─── Types ───────────────────────────────────────────────────
+
+interface CartItem {
+  product: InventoryProduct;
+  qty: number;
+  variantId?: string;
+  variantLabel?: string;
+}
+
+// ─── Video helper ─────────────────────────────────────────────
+
+function parseVideo(url: string): { type: 'iframe' | 'video' | null; src: string } {
+  if (!url) return { type: null, src: '' };
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  if (yt) return { type: 'iframe', src: `https://www.youtube.com/embed/${yt[1]}?autoplay=1` };
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if (vm) return { type: 'iframe', src: `https://player.vimeo.com/video/${vm[1]}?autoplay=1` };
+  return { type: 'video', src: url };
+}
+
+// ─── Product Detail Modal ────────────────────────────────────
+
+interface DetailModalProps {
+  product: InventoryProduct;
+  profile: SupplierProfile;
+  onClose: () => void;
+  onAddToCart: (product: InventoryProduct, variantId?: string, variantLabel?: string) => void;
+}
+
+function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailModalProps) {
+  const imgs = product.images?.length ? product.images : [product.image];
+  const hasVideo = !!(product.videoUrl || product.videoFile);
+  const totalItems = imgs.length + (hasVideo ? 1 : 0);
+  const [activeItem, setActiveItem] = useState(0);
+  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [added, setAdded] = useState(false);
+
+  const variants = product.variants ?? [];
+  const variantType = product.variantType ?? 'none';
+  const hasVariants = !!(product.hasVariants && variants.length > 0);
+
+  // Unique colors/sizes for selector
+  const uniqueColors = [...new Set(variants.map(v => v.color).filter(Boolean))] as string[];
+  const uniqueSizes = [...new Set(variants.map(v => v.size).filter(Boolean))] as string[];
+
+  // Available sizes for selected color (to grey out unavailable combos)
+  const sizesForColor = selectedColor
+    ? variants.filter(v => v.color === selectedColor).map(v => v.size).filter(Boolean) as string[]
+    : uniqueSizes;
+
+  // Find selected variant
+  const selectedVariant: ProductVariant | undefined = hasVariants
+    ? variants.find(v => {
+        if (variantType === 'color-talla') return v.color === selectedColor && v.size === selectedSize;
+        if (variantType === 'color') return v.color === selectedColor;
+        return v.size === selectedSize; // talla or tamaño
+      })
+    : undefined;
+
+  const availableStock = selectedVariant?.stock ?? (hasVariants ? 0 : product.stock);
+
+  const canAdd = !hasVariants || (
+    (variantType === 'color' && !!selectedColor) ||
+    (variantType === 'talla' && !!selectedSize) ||
+    (variantType === 'tamaño' && !!selectedSize) ||
+    (variantType === 'color-talla' && !!selectedColor && !!selectedSize)
+  );
+
+  const buildLabel = () => {
+    const parts = [selectedColor, selectedSize].filter(Boolean);
+    return parts.join(' / ');
+  };
+
+  const handleAdd = () => {
+    if (!canAdd || availableStock === 0) return;
+    const variantId = selectedVariant?.id;
+    const variantLabel = buildLabel() || undefined;
+    onAddToCart(product, variantId, variantLabel);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  };
+
+  const isShowingVideo = hasVideo && activeItem === imgs.length;
+  const videoData = hasVideo
+    ? parseVideo(product.videoUrl ?? product.videoFile ?? '')
+    : null;
+
+  const prev = () => setActiveItem(i => (i - 1 + totalItems) % totalItems);
+  const next = () => setActiveItem(i => (i + 1) % totalItems);
+
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60">
+      <div className="bg-white w-full sm:rounded-2xl sm:max-w-4xl shadow-2xl flex flex-col sm:flex-row max-h-[95dvh] sm:max-h-[88vh] overflow-hidden">
+
+        {/* ─── Left: Gallery ─────────────────────────────── */}
+        <div className="relative flex-shrink-0 sm:w-[55%] bg-[#F7F6F5]">
+          {/* Main display */}
+          <div className="relative aspect-square sm:aspect-auto sm:h-full min-h-[260px]">
+            {isShowingVideo && videoData ? (
+              videoData.type === 'iframe' ? (
+                <iframe src={videoData.src} className="w-full h-full" allowFullScreen title="Video del producto" allow="autoplay" />
+              ) : (
+                <video src={videoData.src} controls autoPlay className="w-full h-full object-contain bg-black" />
+              )
+            ) : (
+              <Image
+                src={imgs[activeItem] ?? imgs[0]}
+                alt={product.name}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 100vw, 55vw"
+                priority
+              />
+            )}
+
+            {/* Prev/Next arrows */}
+            {totalItems > 1 && (
+              <>
+                <button onClick={prev}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white transition-colors">
+                  <ChevronLeft className="h-4 w-4 text-[#0A0A0A]" />
+                </button>
+                <button onClick={next}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white transition-colors">
+                  <ChevronRight className="h-4 w-4 text-[#0A0A0A]" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Thumbnails */}
+          {totalItems > 1 && (
+            <div className="absolute bottom-0 left-0 right-0 flex gap-2 px-3 pb-3 justify-center">
+              {imgs.map((src, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveItem(idx)}
+                  className={`relative w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                    activeItem === idx ? 'border-white shadow-lg scale-105' : 'border-white/40 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <Image src={src} alt={`${idx + 1}`} fill className="object-cover" sizes="48px" />
+                </button>
+              ))}
+              {hasVideo && (
+                <button
+                  onClick={() => setActiveItem(imgs.length)}
+                  className={`w-12 h-12 flex-shrink-0 rounded-lg border-2 flex items-center justify-center transition-all bg-black/80 ${
+                    isShowingVideo ? 'border-white shadow-lg scale-105' : 'border-white/40 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <Play className="h-5 w-5 text-white fill-white" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ─── Right: Info ───────────────────────────────── */}
+        <div className="flex flex-col flex-1 overflow-y-auto">
+          {/* Close button */}
+          <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{product.category}</span>
+            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="px-5 pb-6 space-y-4 flex-1">
+            {/* Name + price */}
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 leading-tight">{product.name}</h2>
+              <p className="text-2xl font-black mt-1" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
+            </div>
+
+            {/* Description */}
+            {product.description && (
+              <p className="text-sm text-gray-500 leading-relaxed">{product.description}</p>
+            )}
+
+            {/* ─── Variant selector ─────────────────────── */}
+            {hasVariants && (
+              <div className="space-y-3">
+                {/* Color selector */}
+                {(variantType === 'color' || variantType === 'color-talla') && uniqueColors.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                      Color {selectedColor && <span className="normal-case font-normal text-gray-700">— {selectedColor}</span>}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueColors.map(color => {
+                        const hasStock = variants.some(v => v.color === color && v.stock > 0);
+                        return (
+                          <button
+                            key={color}
+                            onClick={() => { setSelectedColor(selectedColor === color ? '' : color); setSelectedSize(''); }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
+                              selectedColor === color
+                                ? 'border-gray-900 bg-gray-900 text-white'
+                                : hasStock
+                                ? 'border-gray-200 text-gray-700 hover:border-gray-400'
+                                : 'border-gray-100 text-gray-300 line-through cursor-not-allowed'
+                            }`}
+                            disabled={!hasStock}
+                          >
+                            {color}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Size/tamaño selector */}
+                {(variantType === 'talla' || variantType === 'tamaño' || variantType === 'color-talla') && uniqueSizes.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                      {variantType === 'tamaño' ? 'Tamaño' : 'Talla'}
+                      {selectedSize && <span className="normal-case font-normal text-gray-700"> — {selectedSize}</span>}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueSizes.map(size => {
+                        const inRange = variantType === 'color-talla'
+                          ? sizesForColor.includes(size)
+                          : true;
+                        const hasStock = variants.some(v => {
+                          const colorOk = variantType === 'color-talla' ? v.color === selectedColor : true;
+                          return colorOk && v.size === size && v.stock > 0;
+                        });
+                        return (
+                          <button
+                            key={size}
+                            onClick={() => setSelectedSize(selectedSize === size ? '' : size)}
+                            disabled={!inRange || !hasStock}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
+                              selectedSize === size
+                                ? 'border-gray-900 bg-gray-900 text-white'
+                                : inRange && hasStock
+                                ? 'border-gray-200 text-gray-700 hover:border-gray-400'
+                                : 'border-gray-100 text-gray-300 line-through cursor-not-allowed'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Stock indicator */}
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                availableStock > 10 ? 'bg-green-400' : availableStock > 0 ? 'bg-orange-400' : 'bg-red-400'
+              }`} />
+              <span className="text-xs text-gray-500 font-body">
+                {availableStock > 10
+                  ? 'Disponible'
+                  : availableStock > 0
+                  ? `Solo ${availableStock} disponibles`
+                  : 'Sin stock'}
+              </span>
+            </div>
+
+            {/* Add to cart */}
+            <button
+              onClick={handleAdd}
+              disabled={!canAdd || availableStock === 0}
+              className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                added
+                  ? 'bg-green-500 text-white'
+                  : !canAdd || availableStock === 0
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'text-white hover:opacity-90'
+              }`}
+              style={(!added && canAdd && availableStock > 0) ? { backgroundColor: profile.brandColor } : {}}
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {added
+                ? '¡Agregado al carrito!'
+                : !canAdd && hasVariants
+                ? 'Selecciona una opción'
+                : availableStock === 0
+                ? 'Sin stock'
+                : 'Agregar al carrito'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────
 
 export default function PublicStorePage({
   params,
@@ -23,6 +329,7 @@ export default function PublicStorePage({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<InventoryProduct | null>(null);
 
   useEffect(() => {
     const allSuppliers = getSuppliers();
@@ -50,16 +357,25 @@ export default function PublicStorePage({
     return matchSearch && matchCat;
   });
 
-  const addToCart = (product: InventoryProduct) => {
+  // ─── Cart logic ──────────────────────────────────────────
+  const addToCart = useCallback((product: InventoryProduct, variantId?: string, variantLabel?: string) => {
     setCart((prev) => {
-      const ex = prev.find((i) => i.product.id === product.id);
-      if (ex) return prev.map((i) => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { product, qty: 1 }];
+      const ex = prev.find((i) => i.product.id === product.id && i.variantId === variantId);
+      if (ex) return prev.map((i) =>
+        i.product.id === product.id && i.variantId === variantId
+          ? { ...i, qty: i.qty + 1 }
+          : i,
+      );
+      return [...prev, { product, qty: 1, variantId, variantLabel }];
     });
-  };
+    setSelectedProduct(null);
+  }, []);
 
-  const updateCartQty = (id: string, delta: number) => {
-    setCart((prev) => prev.map((i) => i.product.id === id ? { ...i, qty: i.qty + delta } : i).filter((i) => i.qty > 0));
+  const updateCartQty = (id: string, variantId: string | undefined, delta: number) => {
+    setCart((prev) => prev
+      .map((i) => i.product.id === id && i.variantId === variantId ? { ...i, qty: i.qty + delta } : i)
+      .filter((i) => i.qty > 0),
+    );
   };
 
   const cartTotal = cart.reduce((sum, i) => sum + i.product.price * i.qty, 0);
@@ -71,7 +387,6 @@ export default function PublicStorePage({
       {/* Header */}
       <header className="sticky top-0 z-40 shadow-sm" style={{ backgroundColor: profile.brandColor }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          {/* Logo / Store name */}
           <div className="flex items-center gap-3">
             {profile.logo ? (
               <div className="relative h-9 w-28">
@@ -81,16 +396,12 @@ export default function PublicStorePage({
               <span className="text-white font-bold text-xl tracking-tight">{profile.storeName}</span>
             )}
           </div>
-
-          {/* Nav */}
           <nav className="hidden md:flex items-center gap-6 text-white/90 text-sm">
             <button onClick={() => setFilterCat('')} className="hover:text-white transition-colors font-medium">Inicio</button>
             {categories.slice(0, 4).map((cat) => (
               <button key={cat} onClick={() => setFilterCat(cat)} className="hover:text-white transition-colors">{cat}</button>
             ))}
           </nav>
-
-          {/* Cart */}
           <button
             onClick={() => setCartOpen(true)}
             className="relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold text-white border-2 border-white/30 hover:border-white/60 transition-colors"
@@ -122,7 +433,7 @@ export default function PublicStorePage({
 
       {/* Products */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-        {/* Search + category filter */}
+        {/* Search + filter */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -162,31 +473,87 @@ export default function PublicStorePage({
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {filtered.map((p) => (
-              <div key={p.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
-                <div className="relative aspect-square overflow-hidden bg-gray-50">
-                  <Image src={p.image} alt={p.name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 640px) 50vw, 25vw" />
-                </div>
-                <div className="p-4">
-                  <p className="text-xs text-gray-400 mb-1">{p.category}</p>
-                  <p className="text-sm font-semibold text-gray-900 line-clamp-2 mb-1">{p.name}</p>
-                  <p className="text-lg font-black mb-3" style={{ color: profile.accentColor }}>${p.price.toFixed(2)}</p>
+            {filtered.map((p) => {
+              const primaryImg = p.images?.[0] ?? p.image;
+              const imgCount = p.images?.length ?? 1;
+              const hasVariants = !!(p.hasVariants && (p.variants?.length ?? 0) > 0);
+              const hasVideo = !!(p.videoUrl || p.videoFile);
+
+              return (
+                <div key={p.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
+                  {/* Image — clickable to open detail */}
                   <button
-                    onClick={() => addToCart(p)}
-                    className="w-full py-2 rounded-xl text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: profile.brandColor }}
+                    onClick={() => setSelectedProduct(p)}
+                    className="relative w-full aspect-square overflow-hidden bg-gray-50 block"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    Agregar
+                    <Image
+                      src={primaryImg}
+                      alt={p.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      sizes="(max-width: 640px) 50vw, 25vw"
+                    />
+                    {/* Badges overlay */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      {imgCount > 1 && (
+                        <span className="text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded font-bold">
+                          {imgCount} fotos
+                        </span>
+                      )}
+                      {hasVideo && (
+                        <span className="flex items-center gap-0.5 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded font-bold">
+                          <Play className="h-2.5 w-2.5 fill-white" /> Video
+                        </span>
+                      )}
+                    </div>
+                    {/* View detail hint */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-gray-900 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow">
+                        <Eye className="h-3.5 w-3.5" /> Ver detalle
+                      </span>
+                    </div>
                   </button>
+
+                  <div className="p-4">
+                    <p className="text-xs text-gray-400 mb-1">{p.category}</p>
+                    <button
+                      onClick={() => setSelectedProduct(p)}
+                      className="text-sm font-semibold text-gray-900 line-clamp-2 mb-1 text-left hover:underline w-full"
+                    >
+                      {p.name}
+                    </button>
+                    <p className="text-lg font-black mb-2" style={{ color: profile.accentColor }}>${p.price.toFixed(2)}</p>
+
+                    {/* Variant info or quick add */}
+                    {hasVariants ? (
+                      <button
+                        onClick={() => setSelectedProduct(p)}
+                        className="w-full py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 border-2 transition-all hover:text-white"
+                        style={{ borderColor: profile.brandColor, color: profile.brandColor }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = profile.brandColor; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ''; (e.currentTarget as HTMLButtonElement).style.color = profile.brandColor; }}
+                      >
+                        Seleccionar opciones
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(p)}
+                        className="w-full py-2 rounded-xl text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: profile.brandColor }}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Agregar
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
 
-      {/* Contact footer */}
+      {/* Footer */}
       <footer className="border-t border-gray-100 mt-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <div>
@@ -215,6 +582,16 @@ export default function PublicStorePage({
           )}
         </div>
       </footer>
+
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <ProductDetailModal
+          product={selectedProduct}
+          profile={profile}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={addToCart}
+        />
+      )}
 
       {/* Checkout modal */}
       {checkoutOpen && (
@@ -247,18 +624,21 @@ export default function PublicStorePage({
                   <p className="text-sm">Tu carrito está vacío</p>
                 </div>
               ) : (
-                cart.map(({ product, qty }) => (
-                  <div key={product.id} className="flex gap-3">
+                cart.map(({ product, qty, variantId, variantLabel }) => (
+                  <div key={`${product.id}-${variantId ?? ''}`} className="flex gap-3">
                     <div className="relative w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50">
-                      <Image src={product.image} alt={product.name} fill className="object-cover" sizes="64px" />
+                      <Image src={product.images?.[0] ?? product.image} alt={product.name} fill className="object-cover" sizes="64px" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 line-clamp-1">{product.name}</p>
+                      {variantLabel && (
+                        <p className="text-xs text-gray-400 mt-0.5">{variantLabel}</p>
+                      )}
                       <p className="text-sm font-bold mt-0.5" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
                       <div className="flex items-center gap-1 mt-1.5 border border-gray-200 rounded-lg w-fit">
-                        <button onClick={() => updateCartQty(product.id, -1)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-50"><Minus className="h-3 w-3" /></button>
+                        <button onClick={() => updateCartQty(product.id, variantId, -1)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-50"><Minus className="h-3 w-3" /></button>
                         <span className="w-6 text-center text-xs font-bold">{qty}</span>
-                        <button onClick={() => updateCartQty(product.id, 1)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-50"><Plus className="h-3 w-3" /></button>
+                        <button onClick={() => updateCartQty(product.id, variantId, 1)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-50"><Plus className="h-3 w-3" /></button>
                       </div>
                     </div>
                   </div>
