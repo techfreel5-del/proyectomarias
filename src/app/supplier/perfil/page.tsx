@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { Upload, X, Check, Store, Palette, Phone, Eye, Truck, Landmark, MessageCircle, Package } from 'lucide-react';
-import { useSupplier, ZonedPricing } from '@/lib/supplier-context';
+import { Upload, X, Check, Store, Palette, Phone, Eye, Truck, Landmark, MessageCircle, Package, Sparkles, Megaphone, AtSign } from 'lucide-react';
+import { useSupplier, ZonedPricing, type StoreTheme, type CardStyle } from '@/lib/supplier-context';
+import { THEMES } from '@/lib/store-themes';
 import Link from 'next/link';
 
 export default function PerfilPage() {
@@ -423,6 +424,169 @@ export default function PerfilPage() {
             placeholder="5213511234567"
             maxLength={15}
           />
+        </section>
+
+        {/* ─── Apariencia ─────────────────────────────────────────── */}
+        <section className="bg-white border border-[#EDEBE8] rounded-2xl p-6">
+          <h2 className="text-sm font-bold text-[#0A0A0A] flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4" style={{ color: form.brandColor }} />
+            Apariencia de la tienda
+          </h2>
+          <p className="text-xs text-[#8F8780] font-body mb-6">Define el estilo visual que verán tus clientes al entrar a tu tienda.</p>
+
+          {/* Selector de tema */}
+          <div className="mb-6">
+            <label className={labelCls}>Tema visual</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+              {(Object.entries(THEMES) as [StoreTheme, typeof THEMES[StoreTheme]][]).map(([key, t]) => {
+                const active = (form.storeTheme ?? 'moderno') === key;
+                const labels: Record<StoreTheme, string> = { moderno: 'Moderno', lujo: 'Lujo', minimal: 'Minimal', oscuro: 'Oscuro' };
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setForm({ ...form, storeTheme: key })}
+                    className="relative rounded-xl overflow-hidden border-2 transition-all text-left"
+                    style={{ borderColor: active ? form.brandColor : '#EDEBE8' }}
+                  >
+                    {/* Miniatura del tema */}
+                    <div className="h-20 flex flex-col px-3 pt-3 pb-2 gap-1.5" style={{ backgroundColor: t.bgPage }}>
+                      <div className="h-2 rounded-full w-3/4" style={{ backgroundColor: t.textPrimary, opacity: 0.8 }} />
+                      <div className="h-1.5 rounded-full w-1/2" style={{ backgroundColor: t.textSecondary, opacity: 0.5 }} />
+                      <div className="flex gap-1.5 mt-auto">
+                        <div className="h-7 rounded flex-1" style={{ backgroundColor: t.bgCard, border: `${t.cardBorderWidth} solid ${t.cardBorderColor}` }}>
+                          <div className="h-3 rounded-t" style={{ backgroundColor: t.textSecondary, opacity: 0.2 }} />
+                        </div>
+                        <div className="h-7 rounded flex-1" style={{ backgroundColor: t.bgCard, border: `${t.cardBorderWidth} solid ${t.cardBorderColor}` }}>
+                          <div className="h-3 rounded-t" style={{ backgroundColor: t.textSecondary, opacity: 0.2 }} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-2 py-1.5 flex items-center justify-between" style={{ backgroundColor: t.bgSection }}>
+                      <span className="text-[11px] font-semibold" style={{ color: t.textPrimary }}>{labels[key]}</span>
+                      {active && <Check className="h-3 w-3" style={{ color: form.brandColor }} />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* CTA del hero */}
+          <div className="mb-4">
+            <label className={labelCls}>Texto del botón principal (hero)</label>
+            <input
+              value={form.heroCtaText ?? 'Ver colección'}
+              onChange={(e) => setForm({ ...form, heroCtaText: e.target.value })}
+              className={inputCls}
+              placeholder="Ver colección"
+              maxLength={40}
+            />
+            <p className="text-xs text-[#8F8780] font-body mt-1">Aparece en el banner principal de tu tienda</p>
+          </div>
+
+          {/* Estilo de cards */}
+          <div>
+            <label className={labelCls}>Estilo de tarjetas de producto</label>
+            <div className="flex gap-3 mt-2">
+              {([['rounded', 'Redondeadas'], ['square', 'Cuadradas']] as [CardStyle, string][]).map(([val, label]) => {
+                const active = (form.cardStyle ?? 'rounded') === val;
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setForm({ ...form, cardStyle: val })}
+                    className="flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all text-sm font-semibold"
+                    style={{
+                      borderColor: active ? form.brandColor : '#EDEBE8',
+                      color: active ? form.brandColor : '#6B6359',
+                      backgroundColor: active ? form.brandColor + '0D' : '#FFFFFF',
+                    }}
+                  >
+                    <div
+                      className="w-8 h-8 bg-[#F7F6F5] border border-[#EDEBE8]"
+                      style={{ borderRadius: val === 'rounded' ? '10px' : '2px' }}
+                    />
+                    {label}
+                    {active && <Check className="h-4 w-4 ml-auto" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Barra de anuncio ───────────────────────────────────── */}
+        <section className="bg-white border border-[#EDEBE8] rounded-2xl p-6">
+          <h2 className="text-sm font-bold text-[#0A0A0A] flex items-center gap-2 mb-2">
+            <Megaphone className="h-4 w-4" style={{ color: form.brandColor }} />
+            Barra de anuncio
+          </h2>
+          <p className="text-xs text-[#8F8780] font-body mb-5">
+            Aparece arriba del encabezado de tu tienda. Deja vacío para ocultarla.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className={labelCls}>Texto del anuncio</label>
+              <input
+                value={form.announcementText ?? ''}
+                onChange={(e) => setForm({ ...form, announcementText: e.target.value })}
+                className={inputCls}
+                placeholder="Ej: Envío gratis en pedidos mayores a $500 · Llámanos al 351-123-4567"
+                maxLength={120}
+              />
+            </div>
+            {(form.announcementText ?? '') && (
+              <div>
+                <label className={labelCls}>Color de fondo</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={form.announcementBg || form.brandColor}
+                    onChange={(e) => setForm({ ...form, announcementBg: e.target.value })}
+                    className="w-12 h-10 rounded-lg border border-[#EDEBE8] cursor-pointer p-0.5 bg-white"
+                  />
+                  <div
+                    className="flex-1 px-4 py-2 rounded-lg text-center text-xs font-bold text-white truncate"
+                    style={{ backgroundColor: form.announcementBg || form.brandColor }}
+                  >
+                    {form.announcementText}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ─── Redes sociales ─────────────────────────────────────── */}
+        <section className="bg-white border border-[#EDEBE8] rounded-2xl p-6">
+          <h2 className="text-sm font-bold text-[#0A0A0A] flex items-center gap-2 mb-2">
+            <AtSign className="h-4 w-4" style={{ color: form.brandColor }} />
+            Redes sociales
+          </h2>
+          <p className="text-xs text-[#8F8780] font-body mb-5">
+            Aparecen en el pie de página de tu tienda. Solo escribe el usuario o handle.
+          </p>
+          <div className="space-y-4">
+            {([
+              { key: 'instagramUrl' as const, label: 'Instagram', prefix: 'instagram.com/', placeholder: 'mitienda.zamora' },
+              { key: 'facebookUrl' as const,  label: 'Facebook',  prefix: 'facebook.com/',  placeholder: 'MiTiendaZamora' },
+              { key: 'tiktokUrl'   as const,  label: 'TikTok',    prefix: 'tiktok.com/@',   placeholder: 'mitiendazamora' },
+            ]).map(({ key, label, prefix, placeholder }) => (
+              <div key={key}>
+                <label className={labelCls}>{label}</label>
+                <div className="flex items-center border border-[#EDEBE8] rounded-lg overflow-hidden bg-white focus-within:border-[#3B82F6]">
+                  <span className="px-3 py-2.5 text-xs text-[#8F8780] bg-[#F7F6F5] border-r border-[#EDEBE8] font-body whitespace-nowrap">{prefix}</span>
+                  <input
+                    value={form[key] ?? ''}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                    className="flex-1 px-3 py-2.5 text-sm font-body text-[#0A0A0A] focus:outline-none bg-white"
+                    placeholder={placeholder}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
       </div>

@@ -47,6 +47,9 @@ export interface StoreConfig {
   whatsappNumber: string;
 }
 
+export type StoreTheme = 'moderno' | 'lujo' | 'minimal' | 'oscuro';
+export type CardStyle = 'rounded' | 'square';
+
 export interface SupplierProfile {
   storeName: string;
   slug: string;
@@ -60,6 +63,16 @@ export interface SupplierProfile {
   bannerUrl: string;
   showPoweredBy: boolean;
   storeConfig: StoreConfig;
+  // Apariencia & personalización
+  storeTheme?: StoreTheme;
+  heroCtaText?: string;
+  announcementText?: string;
+  announcementBg?: string;
+  cardStyle?: CardStyle;
+  // Redes sociales
+  instagramUrl?: string;
+  facebookUrl?: string;
+  tiktokUrl?: string;
 }
 
 export interface InventoryProduct {

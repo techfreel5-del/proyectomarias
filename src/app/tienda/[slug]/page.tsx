@@ -1,17 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import {
-  ShoppingBag, Search, Phone, Mail, MapPin, ShoppingCart,
-  Plus, X, Minus, ChevronLeft, ChevronRight, Play, Eye,
+  ShoppingBag, Search, Phone, Mail, MapPin, X, Plus, Minus,
+  ChevronLeft, ChevronRight, Play, Eye, Instagram, ArrowDown,
+  ShoppingCart,
 } from 'lucide-react';
+import { useGSAP } from '@gsap/react';
+import { gsap, ScrollTrigger, SplitText } from '@/lib/gsap';
 import { type SupplierProfile, type InventoryProduct, type ProductVariant } from '@/lib/supplier-context';
 import { SupplierCheckoutModal } from '@/components/supplier/SupplierCheckoutModal';
 import { getSuppliers } from '@/lib/suppliers-store';
+import { getTheme, type ThemeTokens } from '@/lib/store-themes';
 import { use } from 'react';
 
-// ─── Types ───────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface CartItem {
   product: InventoryProduct;
@@ -20,7 +24,7 @@ interface CartItem {
   variantLabel?: string;
 }
 
-// ─── Video helper ─────────────────────────────────────────────
+// ─── Video helper ─────────────────────────────────────────────────────────────
 
 function parseVideo(url: string): { type: 'iframe' | 'video' | null; src: string } {
   if (!url) return { type: null, src: '' };
@@ -31,16 +35,501 @@ function parseVideo(url: string): { type: 'iframe' | 'video' | null; src: string
   return { type: 'video', src: url };
 }
 
-// ─── Product Detail Modal ────────────────────────────────────
+// ─── Announcement Bar ─────────────────────────────────────────────────────────
+
+function AnnouncementBar({ text, bg }: { text: string; bg: string }) {
+  return (
+    <div className="overflow-hidden h-8 flex items-center" style={{ backgroundColor: bg }}>
+      <div
+        className="flex gap-16 whitespace-nowrap text-white text-xs font-semibold tracking-wide"
+        style={{ animation: 'marquee 28s linear infinite' }}
+      >
+        {[...Array(4)].map((_, i) => <span key={i}>{text}</span>)}
+      </div>
+      <style>{`@keyframes marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
+    </div>
+  );
+}
+
+// ─── Store Header ─────────────────────────────────────────────────────────────
+
+interface HeaderProps {
+  profile: SupplierProfile;
+  t: ThemeTokens;
+  categories: string[];
+  activeCategory: string;
+  onCategoryClick: (cat: string) => void;
+  cartQty: number;
+  onCartOpen: () => void;
+}
+
+function StoreHeader({ profile, t, categories, activeCategory, onCategoryClick, cartQty, onCartOpen }: HeaderProps) {
+  const headerRef = useRef<HTMLElement>(null);
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const prevQty = useRef(cartQty);
+
+  useGSAP(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+
+    gsap.from(header, { y: -70, opacity: 0, duration: 0.7, ease: 'power3.out' });
+
+    let lastY = 0;
+    ScrollTrigger.create({
+      onUpdate: (self) => {
+        const currentY = self.scroll();
+        if (currentY > lastY && currentY > 100) {
+          gsap.to(header, { y: '-110%', duration: 0.35, ease: 'power2.in', overwrite: true });
+        } else {
+          gsap.to(header, { y: '0%', duration: 0.45, ease: 'power2.out', overwrite: true });
+        }
+        lastY = currentY;
+      },
+    });
+  }, { scope: headerRef });
+
+  // Badge bump when cart changes
+  useGSAP(() => {
+    if (!badgeRef.current || cartQty === prevQty.current) return;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReducedMotion) {
+      gsap.fromTo(badgeRef.current, { scale: 1.8 }, { scale: 1, duration: 0.4, ease: 'back.out(2)' });
+    }
+    prevQty.current = cartQty;
+  }, { dependencies: [cartQty] });
+
+  const cardRadiusForBtn = t.cardStyle === undefined ? '9999px' : '9999px';
+
+  return (
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-40"
+      style={{
+        backgroundColor: t.headerBg,
+        backdropFilter: t.headerBlur ? 'blur(14px)' : 'none',
+        WebkitBackdropFilter: t.headerBlur ? 'blur(14px)' : 'none',
+        borderBottom: `1px solid ${t.cardBorderColor}`,
+      }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        {/* Logo */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {profile.logo ? (
+            <div className="relative h-9 w-28">
+              <Image src={profile.logo} alt={profile.storeName} fill className="object-contain object-left" />
+            </div>
+          ) : (
+            <span
+              className="font-bold text-lg tracking-tight"
+              style={{
+                fontFamily: t.fontHeadline,
+                color: t.textPrimary,
+                fontStyle: t.headlineStyle,
+              }}
+            >
+              {profile.storeName}
+            </span>
+          )}
+        </div>
+
+        {/* Nav categories (desktop) */}
+        <nav className="hidden md:flex items-center gap-1">
+          {['Todos', ...categories.slice(0, 4)].map((cat) => {
+            const active = cat === 'Todos' ? !activeCategory : activeCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => onCategoryClick(cat === 'Todos' ? '' : cat)}
+                className="relative px-4 py-2 text-sm font-medium transition-colors group"
+                style={{ color: active ? profile.brandColor : t.textSecondary }}
+              >
+                {cat}
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-0.5 transition-transform duration-300 origin-left"
+                  style={{
+                    backgroundColor: profile.brandColor,
+                    transform: active ? 'scaleX(1)' : 'scaleX(0)',
+                  }}
+                />
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Cart button */}
+        <button
+          onClick={onCartOpen}
+          className="relative flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold transition-all hover:opacity-90 active:scale-95"
+          style={{ backgroundColor: profile.brandColor, color: '#fff' }}
+        >
+          <ShoppingBag className="h-4 w-4" />
+          <span className="hidden sm:block">Carrito</span>
+          {cartQty > 0 && (
+            <span
+              ref={badgeRef}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center"
+              style={{ backgroundColor: profile.accentColor }}
+            >
+              {cartQty}
+            </span>
+          )}
+        </button>
+      </div>
+    </header>
+  );
+}
+
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+
+interface HeroProps {
+  profile: SupplierProfile;
+  t: ThemeTokens;
+  onCtaClick: () => void;
+}
+
+function StoreHero({ profile, t, onCtaClick }: HeroProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
+  const subRef = useRef<HTMLParagraphElement>(null);
+  const ctaRef = useRef<HTMLButtonElement>(null);
+  const arrowRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+    if (headlineRef.current) {
+      const split = new SplitText(headlineRef.current, { type: 'lines' });
+      split.lines.forEach((line) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.overflow = 'hidden';
+        line.parentNode?.insertBefore(wrapper, line);
+        wrapper.appendChild(line);
+      });
+      tl
+        .from(badgeRef.current, { y: 20, opacity: 0, duration: 0.45 }, 0)
+        .from(split.lines, { y: '105%', opacity: 0, stagger: 0.1, duration: 0.85 }, 0.15)
+        .from(subRef.current, { y: 20, opacity: 0, duration: 0.55 }, 0.55)
+        .from(ctaRef.current, { y: 14, opacity: 0, duration: 0.45 }, 0.75)
+        .from(arrowRef.current, { opacity: 0, duration: 0.4 }, 1.1);
+
+      return () => split.revert();
+    }
+  }, { scope: containerRef, dependencies: [profile.storeName] });
+
+  const ctaText = profile.heroCtaText || 'Ver colección';
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative flex items-center justify-center text-center overflow-hidden"
+      style={{ minHeight: 'min(100dvh, 860px)' }}
+    >
+      {/* Background */}
+      {profile.bannerUrl ? (
+        <div className="absolute inset-0">
+          <Image src={profile.bannerUrl} alt={profile.storeName} fill className="object-cover" priority sizes="100vw" />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(180deg, ${profile.brandColor}${Math.round(t.heroBgOpacity * 255).toString(16).padStart(2, '0')} 0%, ${profile.brandColor}CC 100%)`,
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(135deg, ${profile.brandColor} 0%, ${profile.brandColor}99 100%)` }}
+        />
+      )}
+
+      {/* Content */}
+      <div className="relative z-10 px-6 max-w-4xl mx-auto">
+        <span
+          ref={badgeRef}
+          className="inline-block text-xs font-bold tracking-[0.2em] uppercase px-4 py-1.5 rounded-full mb-6 text-white"
+          style={{ backgroundColor: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}
+        >
+          {profile.storeName}
+        </span>
+        <h1
+          ref={headlineRef}
+          className="text-white mb-5 leading-[1.05]"
+          style={{
+            fontFamily: t.fontHeadline,
+            fontStyle: t.headlineStyle,
+            fontWeight: t.headlineWeight,
+            fontSize: 'clamp(2.8rem, 7vw, 6.5rem)',
+          }}
+        >
+          {profile.description || profile.storeName}
+        </h1>
+        {profile.description && (
+          <p ref={subRef} className="text-white/80 mb-10 max-w-xl mx-auto" style={{ fontSize: 'clamp(1rem, 2vw, 1.2rem)', fontWeight: 300 }}>
+            {profile.storeName}
+          </p>
+        )}
+        <button
+          ref={ctaRef}
+          onClick={onCtaClick}
+          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-full font-bold text-sm tracking-wide transition-all hover:opacity-90 active:scale-95"
+          style={{ backgroundColor: profile.accentColor, color: '#fff' }}
+        >
+          {ctaText}
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Scroll indicator */}
+      <div
+        ref={arrowRef}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-white/60"
+        style={{ animation: 'bounce 2s infinite' }}
+      >
+        <ArrowDown className="h-5 w-5" />
+        <style>{`@keyframes bounce { 0%,100%{transform:translateY(0) translateX(-50%)} 50%{transform:translateY(8px) translateX(-50%)} }`}</style>
+      </div>
+    </div>
+  );
+}
+
+// ─── Category Filter ──────────────────────────────────────────────────────────
+
+interface FilterProps {
+  profile: SupplierProfile;
+  t: ThemeTokens;
+  categories: string[];
+  activeCategory: string;
+  search: string;
+  onCategoryClick: (cat: string) => void;
+  onSearchChange: (s: string) => void;
+}
+
+function CategoryFilter({ profile, t, categories, activeCategory, search, onCategoryClick, onSearchChange }: FilterProps) {
+  const filterRef = useRef<HTMLDivElement>(null);
+  useGSAP(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+    gsap.from(filterRef.current, { y: -10, opacity: 0, duration: 0.5, ease: 'power2.out', scrollTrigger: { trigger: filterRef.current, start: 'top 90%' } });
+  }, { scope: filterRef });
+
+  return (
+    <div
+      ref={filterRef}
+      className="sticky z-30 border-b"
+      style={{ top: '64px', backgroundColor: t.filterBarBg, borderColor: t.filterBarBorder }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 overflow-x-auto scrollbar-hide">
+        {/* Search */}
+        <div className="relative flex-shrink-0 w-52 hidden sm:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: t.textSecondary }} />
+          <input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Buscar…"
+            className="w-full rounded-full pl-8 pr-4 py-2 text-xs focus:outline-none focus:ring-2 transition-all"
+            style={{
+              backgroundColor: t.inputBg,
+              border: `1px solid ${t.cardBorderColor}`,
+              color: t.textPrimary,
+            }}
+          />
+        </div>
+        {/* Divider */}
+        <div className="h-5 w-px hidden sm:block" style={{ backgroundColor: t.cardBorderColor }} />
+        {/* Category chips */}
+        {['Todos', ...categories].map((cat) => {
+          const active = cat === 'Todos' ? !activeCategory : activeCategory === cat;
+          return (
+            <button
+              key={cat}
+              onClick={() => onCategoryClick(cat === 'Todos' ? '' : cat)}
+              className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{
+                backgroundColor: active ? profile.brandColor : 'transparent',
+                color: active ? '#fff' : t.textSecondary,
+                border: `1.5px solid ${active ? profile.brandColor : t.cardBorderColor}`,
+              }}
+            >
+              {cat}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Product Card ─────────────────────────────────────────────────────────────
+
+interface CardProps {
+  product: InventoryProduct;
+  profile: SupplierProfile;
+  t: ThemeTokens;
+  cardStyle: 'rounded' | 'square';
+  onViewDetail: (p: InventoryProduct) => void;
+  onAddToCart: (p: InventoryProduct) => void;
+}
+
+function ProductCard({ product, profile, t, cardStyle, onViewDetail, onAddToCart }: CardProps) {
+  const primaryImg = product.images?.[0] ?? product.image;
+  const hasVariants = !!(product.hasVariants && (product.variants?.length ?? 0) > 0);
+  const hasVideo = !!(product.videoUrl || product.videoFile);
+  const imgCount = product.images?.length ?? 1;
+  const radius = cardStyle === 'rounded' ? t.cardRadius : '2px';
+
+  return (
+    <div
+      className="group overflow-hidden transition-shadow duration-300"
+      style={{
+        backgroundColor: t.bgCard,
+        border: `${t.cardBorderWidth} solid ${t.cardBorderColor}`,
+        boxShadow: t.cardShadow,
+        borderRadius: radius,
+      }}
+    >
+      {/* Image */}
+      <button
+        onClick={() => onViewDetail(product)}
+        className="relative w-full aspect-square overflow-hidden block"
+        style={{ backgroundColor: t.bgSection }}
+      >
+        <Image
+          src={primaryImg}
+          alt={product.name}
+          fill
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+          sizes="(max-width: 640px) 50vw, 25vw"
+        />
+        {/* Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {imgCount > 1 && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: t.badgeBg, color: t.badgeText }}>
+              {imgCount} fotos
+            </span>
+          )}
+          {hasVideo && (
+            <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: t.badgeBg, color: t.badgeText }}>
+              <Play className="h-2.5 w-2.5 fill-current" /> Video
+            </span>
+          )}
+        </div>
+        {/* Hover overlay */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.22)' }}>
+          <span className="bg-white/95 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg" style={{ color: t.textPrimary }}>
+            <Eye className="h-3.5 w-3.5" /> Ver detalle
+          </span>
+        </div>
+      </button>
+
+      {/* Info */}
+      <div className="p-4">
+        <p className="text-[11px] font-medium mb-1 uppercase tracking-wider" style={{ color: t.textSecondary }}>{product.category}</p>
+        <button
+          onClick={() => onViewDetail(product)}
+          className="text-sm font-semibold line-clamp-2 mb-2 text-left hover:opacity-70 transition-opacity w-full"
+          style={{ color: t.textPrimary }}
+        >
+          {product.name}
+        </button>
+        <p className="text-lg font-black mb-3" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
+        {hasVariants ? (
+          <button
+            onClick={() => onViewDetail(product)}
+            className="w-full py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all hover:text-white rounded-full"
+            style={{ borderColor: profile.brandColor, color: profile.brandColor }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = profile.brandColor; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = profile.brandColor; }}
+          >
+            Seleccionar opciones
+          </button>
+        ) : (
+          <button
+            onClick={() => onAddToCart(product)}
+            className="w-full py-2 rounded-full text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: profile.brandColor }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Agregar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Product Grid ─────────────────────────────────────────────────────────────
+
+interface GridProps {
+  products: InventoryProduct[];
+  profile: SupplierProfile;
+  t: ThemeTokens;
+  cardStyle: 'rounded' | 'square';
+  onViewDetail: (p: InventoryProduct) => void;
+  onAddToCart: (p: InventoryProduct) => void;
+}
+
+function ProductGrid({ products, profile, t, cardStyle, onViewDetail, onAddToCart }: GridProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+    const cards = gridRef.current?.querySelectorAll('.product-card-item');
+    if (!cards?.length) return;
+    gsap.from(cards, {
+      y: 52,
+      opacity: 0,
+      stagger: { amount: 0.55, from: 'start' },
+      duration: 0.7,
+      ease: 'power3.out',
+      scrollTrigger: { trigger: gridRef.current, start: 'top 87%' },
+    });
+  }, { scope: gridRef, dependencies: [products.length] });
+
+  if (products.length === 0) {
+    return (
+      <div className="text-center py-24" style={{ color: t.textSecondary }}>
+        <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-30" />
+        <p className="text-sm">Sin productos disponibles</p>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={gridRef} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      {products.map((p) => (
+        <div key={p.id} className="product-card-item">
+          <ProductCard
+            product={p}
+            profile={profile}
+            t={t}
+            cardStyle={cardStyle}
+            onViewDetail={onViewDetail}
+            onAddToCart={onAddToCart}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Product Detail Modal ─────────────────────────────────────────────────────
 
 interface DetailModalProps {
   product: InventoryProduct;
   profile: SupplierProfile;
+  t: ThemeTokens;
   onClose: () => void;
   onAddToCart: (product: InventoryProduct, variantId?: string, variantLabel?: string) => void;
 }
 
-function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailModalProps) {
+function ProductDetailModal({ product, profile, t, onClose, onAddToCart }: DetailModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const imgs = product.images?.length ? product.images : [product.image];
   const hasVideo = !!(product.videoUrl || product.videoFile);
   const totalItems = imgs.length + (hasVideo ? 1 : 0);
@@ -52,27 +541,19 @@ function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailMo
   const variants = product.variants ?? [];
   const variantType = product.variantType ?? 'none';
   const hasVariants = !!(product.hasVariants && variants.length > 0);
-
-  // Unique colors/sizes for selector
   const uniqueColors = [...new Set(variants.map(v => v.color).filter(Boolean))] as string[];
   const uniqueSizes = [...new Set(variants.map(v => v.size).filter(Boolean))] as string[];
-
-  // Available sizes for selected color (to grey out unavailable combos)
   const sizesForColor = selectedColor
     ? variants.filter(v => v.color === selectedColor).map(v => v.size).filter(Boolean) as string[]
     : uniqueSizes;
-
-  // Find selected variant
   const selectedVariant: ProductVariant | undefined = hasVariants
     ? variants.find(v => {
         if (variantType === 'color-talla') return v.color === selectedColor && v.size === selectedSize;
         if (variantType === 'color') return v.color === selectedColor;
-        return v.size === selectedSize; // talla or tamaño
+        return v.size === selectedSize;
       })
     : undefined;
-
   const availableStock = selectedVariant?.stock ?? (hasVariants ? 0 : product.stock);
-
   const canAdd = !hasVariants || (
     (variantType === 'color' && !!selectedColor) ||
     (variantType === 'talla' && !!selectedSize) ||
@@ -80,52 +561,70 @@ function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailMo
     (variantType === 'color-talla' && !!selectedColor && !!selectedSize)
   );
 
-  const buildLabel = () => {
-    const parts = [selectedColor, selectedSize].filter(Boolean);
-    return parts.join(' / ');
-  };
+  // GSAP entrance
+  useGSAP(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || !modalRef.current) return;
+    gsap.fromTo(
+      modalRef.current,
+      { scale: 0.93, opacity: 0, y: 30 },
+      { scale: 1, opacity: 1, y: 0, duration: 0.42, ease: 'back.out(1.2)' },
+    );
+  }, { scope: modalRef });
+
+  const handleClose = useCallback(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || !modalRef.current) { onClose(); return; }
+    gsap.to(modalRef.current, {
+      scale: 0.94, opacity: 0, y: 20, duration: 0.25, ease: 'power2.in',
+      onComplete: onClose,
+    });
+  }, [onClose]);
 
   const handleAdd = () => {
     if (!canAdd || availableStock === 0) return;
     const variantId = selectedVariant?.id;
-    const variantLabel = buildLabel() || undefined;
+    const variantLabel = [selectedColor, selectedSize].filter(Boolean).join(' / ') || undefined;
     onAddToCart(product, variantId, variantLabel);
     setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
+    setTimeout(() => setAdded(false), 1600);
   };
 
   const isShowingVideo = hasVideo && activeItem === imgs.length;
-  const videoData = hasVideo
-    ? parseVideo(product.videoUrl ?? product.videoFile ?? '')
-    : null;
+  const videoData = hasVideo ? parseVideo(product.videoUrl ?? product.videoFile ?? '') : null;
 
-  const prev = () => setActiveItem(i => (i - 1 + totalItems) % totalItems);
-  const next = () => setActiveItem(i => (i + 1) % totalItems);
-
-  // Close on Escape
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [handleClose]);
+
+  const cardRadius = product.cardStyle === 'square' ? '2px' : t.cardRadius;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60">
-      <div className="bg-white w-full sm:rounded-2xl sm:max-w-4xl shadow-2xl flex flex-col sm:flex-row max-h-[95dvh] sm:max-h-[88vh] overflow-hidden">
-
-        {/* ─── Left: Gallery ─────────────────────────────── */}
-        <div className="relative flex-shrink-0 sm:w-[55%] bg-[#F7F6F5]">
-          {/* Main display */}
-          <div className="relative aspect-square sm:aspect-auto sm:h-full min-h-[260px]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+      <div
+        ref={modalRef}
+        className="w-full sm:max-w-4xl flex flex-col sm:flex-row overflow-hidden"
+        style={{
+          maxHeight: '94dvh',
+          backgroundColor: t.bgCard,
+          borderRadius: '20px',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.35)',
+        }}
+      >
+        {/* Gallery side */}
+        <div className="relative flex-shrink-0 sm:w-[55%] bg-black" style={{ minHeight: '280px' }}>
+          <div className="relative w-full aspect-square sm:aspect-auto sm:h-full">
             {isShowingVideo && videoData ? (
               videoData.type === 'iframe' ? (
-                <iframe src={videoData.src} className="w-full h-full" allowFullScreen title="Video del producto" allow="autoplay" />
+                <iframe src={videoData.src} className="w-full h-full" allowFullScreen allow="autoplay" title="Video" />
               ) : (
-                <video src={videoData.src} controls autoPlay className="w-full h-full object-contain bg-black" />
+                <video src={videoData.src} controls autoPlay className="w-full h-full object-contain" />
               )
             ) : (
               <Image
-                src={imgs[activeItem] ?? imgs[0]}
+                src={imgs[Math.min(activeItem, imgs.length - 1)]}
                 alt={product.name}
                 fill
                 className="object-cover"
@@ -133,96 +632,103 @@ function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailMo
                 priority
               />
             )}
-
-            {/* Prev/Next arrows */}
-            {totalItems > 1 && (
-              <>
-                <button onClick={prev}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white transition-colors">
-                  <ChevronLeft className="h-4 w-4 text-[#0A0A0A]" />
-                </button>
-                <button onClick={next}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white transition-colors">
-                  <ChevronRight className="h-4 w-4 text-[#0A0A0A]" />
-                </button>
-              </>
-            )}
           </div>
-
+          {/* Arrows */}
+          {totalItems > 1 && (
+            <>
+              <button
+                onClick={() => setActiveItem(i => (i - 1 + totalItems) % totalItems)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4 text-gray-900" />
+              </button>
+              <button
+                onClick={() => setActiveItem(i => (i + 1) % totalItems)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+              >
+                <ChevronRight className="h-4 w-4 text-gray-900" />
+              </button>
+            </>
+          )}
           {/* Thumbnails */}
           {totalItems > 1 && (
-            <div className="absolute bottom-0 left-0 right-0 flex gap-2 px-3 pb-3 justify-center">
+            <div className="absolute bottom-3 left-0 right-0 flex gap-2 justify-center px-3">
               {imgs.map((src, idx) => (
                 <button
                   key={idx}
                   onClick={() => setActiveItem(idx)}
-                  className={`relative w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
-                    activeItem === idx ? 'border-white shadow-lg scale-105' : 'border-white/40 opacity-70 hover:opacity-100'
-                  }`}
+                  className="relative w-11 h-11 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all"
+                  style={{ borderColor: activeItem === idx ? '#fff' : 'rgba(255,255,255,0.35)', opacity: activeItem === idx ? 1 : 0.65 }}
                 >
-                  <Image src={src} alt={`${idx + 1}`} fill className="object-cover" sizes="48px" />
+                  <Image src={src} alt="" fill className="object-cover" sizes="44px" />
                 </button>
               ))}
               {hasVideo && (
                 <button
                   onClick={() => setActiveItem(imgs.length)}
-                  className={`w-12 h-12 flex-shrink-0 rounded-lg border-2 flex items-center justify-center transition-all bg-black/80 ${
-                    isShowingVideo ? 'border-white shadow-lg scale-105' : 'border-white/40 opacity-70 hover:opacity-100'
-                  }`}
+                  className="w-11 h-11 flex-shrink-0 rounded-lg bg-black/80 border-2 flex items-center justify-center transition-all"
+                  style={{ borderColor: isShowingVideo ? '#fff' : 'rgba(255,255,255,0.35)', opacity: isShowingVideo ? 1 : 0.65 }}
                 >
-                  <Play className="h-5 w-5 text-white fill-white" />
+                  <Play className="h-4 w-4 fill-white text-white" />
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* ─── Right: Info ───────────────────────────────── */}
-        <div className="flex flex-col flex-1 overflow-y-auto">
-          {/* Close button */}
-          <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{product.category}</span>
-            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+        {/* Info side */}
+        <div className="flex flex-col flex-1 overflow-y-auto" style={{ backgroundColor: t.bgCard }}>
+          <div className="flex items-start justify-between px-5 pt-5 pb-2 flex-shrink-0">
+            <span
+              className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: t.bgSection, color: t.textSecondary }}
+            >
+              {product.category}
+            </span>
+            <button
+              onClick={handleClose}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+              style={{ backgroundColor: t.bgSection, color: t.textSecondary }}
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           <div className="px-5 pb-6 space-y-4 flex-1">
-            {/* Name + price */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900 leading-tight">{product.name}</h2>
-              <p className="text-2xl font-black mt-1" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
+              <h2 className="text-xl font-bold leading-tight" style={{ color: t.textPrimary, fontFamily: t.fontHeadline, fontStyle: t.headlineStyle }}>{product.name}</h2>
+              <p className="text-2xl font-black mt-1.5" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
             </div>
 
-            {/* Description */}
             {product.description && (
-              <p className="text-sm text-gray-500 leading-relaxed">{product.description}</p>
+              <p className="text-sm leading-relaxed" style={{ color: t.textSecondary }}>{product.description}</p>
             )}
 
-            {/* ─── Variant selector ─────────────────────── */}
+            {/* Variants */}
             {hasVariants && (
               <div className="space-y-3">
-                {/* Color selector */}
                 {(variantType === 'color' || variantType === 'color-talla') && uniqueColors.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
-                      Color {selectedColor && <span className="normal-case font-normal text-gray-700">— {selectedColor}</span>}
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: t.textSecondary }}>
+                      Color {selectedColor && <span className="normal-case font-normal" style={{ color: t.textPrimary }}>— {selectedColor}</span>}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {uniqueColors.map(color => {
                         const hasStock = variants.some(v => v.color === color && v.stock > 0);
+                        const active = selectedColor === color;
                         return (
                           <button
                             key={color}
-                            onClick={() => { setSelectedColor(selectedColor === color ? '' : color); setSelectedSize(''); }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
-                              selectedColor === color
-                                ? 'border-gray-900 bg-gray-900 text-white'
-                                : hasStock
-                                ? 'border-gray-200 text-gray-700 hover:border-gray-400'
-                                : 'border-gray-100 text-gray-300 line-through cursor-not-allowed'
-                            }`}
+                            onClick={() => { setSelectedColor(active ? '' : color); setSelectedSize(''); }}
                             disabled={!hasStock}
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all"
+                            style={{
+                              borderColor: active ? profile.brandColor : t.cardBorderColor,
+                              backgroundColor: active ? profile.brandColor : 'transparent',
+                              color: active ? '#fff' : hasStock ? t.textPrimary : t.textMuted,
+                              textDecoration: hasStock ? 'none' : 'line-through',
+                              opacity: hasStock ? 1 : 0.5,
+                            }}
                           >
                             {color}
                           </button>
@@ -231,35 +737,33 @@ function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailMo
                     </div>
                   </div>
                 )}
-
-                {/* Size/tamaño selector */}
                 {(variantType === 'talla' || variantType === 'tamaño' || variantType === 'color-talla') && uniqueSizes.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: t.textSecondary }}>
                       {variantType === 'tamaño' ? 'Tamaño' : 'Talla'}
-                      {selectedSize && <span className="normal-case font-normal text-gray-700"> — {selectedSize}</span>}
+                      {selectedSize && <span className="normal-case font-normal" style={{ color: t.textPrimary }}> — {selectedSize}</span>}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {uniqueSizes.map(size => {
-                        const inRange = variantType === 'color-talla'
-                          ? sizesForColor.includes(size)
-                          : true;
+                        const inRange = variantType === 'color-talla' ? sizesForColor.includes(size) : true;
                         const hasStock = variants.some(v => {
                           const colorOk = variantType === 'color-talla' ? v.color === selectedColor : true;
                           return colorOk && v.size === size && v.stock > 0;
                         });
+                        const active = selectedSize === size;
                         return (
                           <button
                             key={size}
-                            onClick={() => setSelectedSize(selectedSize === size ? '' : size)}
+                            onClick={() => setSelectedSize(active ? '' : size)}
                             disabled={!inRange || !hasStock}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
-                              selectedSize === size
-                                ? 'border-gray-900 bg-gray-900 text-white'
-                                : inRange && hasStock
-                                ? 'border-gray-200 text-gray-700 hover:border-gray-400'
-                                : 'border-gray-100 text-gray-300 line-through cursor-not-allowed'
-                            }`}
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all"
+                            style={{
+                              borderColor: active ? profile.brandColor : t.cardBorderColor,
+                              backgroundColor: active ? profile.brandColor : 'transparent',
+                              color: active ? '#fff' : inRange && hasStock ? t.textPrimary : t.textMuted,
+                              textDecoration: inRange && hasStock ? 'none' : 'line-through',
+                              opacity: inRange && hasStock ? 1 : 0.4,
+                            }}
                           >
                             {size}
                           </button>
@@ -273,15 +777,12 @@ function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailMo
 
             {/* Stock indicator */}
             <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                availableStock > 10 ? 'bg-green-400' : availableStock > 0 ? 'bg-orange-400' : 'bg-red-400'
-              }`} />
-              <span className="text-xs text-gray-500 font-body">
-                {availableStock > 10
-                  ? 'Disponible'
-                  : availableStock > 0
-                  ? `Solo ${availableStock} disponibles`
-                  : 'Sin stock'}
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: availableStock > 10 ? '#10B981' : availableStock > 0 ? '#F59E0B' : '#EF4444' }}
+              />
+              <span className="text-xs" style={{ color: t.textSecondary }}>
+                {availableStock > 10 ? 'Disponible' : availableStock > 0 ? `Solo ${availableStock} disponibles` : 'Sin stock'}
               </span>
             </div>
 
@@ -289,22 +790,17 @@ function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailMo
             <button
               onClick={handleAdd}
               disabled={!canAdd || availableStock === 0}
-              className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
-                added
-                  ? 'bg-green-500 text-white'
-                  : !canAdd || availableStock === 0
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'text-white hover:opacity-90'
-              }`}
-              style={(!added && canAdd && availableStock > 0) ? { backgroundColor: profile.brandColor } : {}}
+              className="w-full py-3.5 rounded-full font-bold text-sm flex items-center justify-center gap-2 transition-all"
+              style={{
+                backgroundColor: added ? '#10B981' : (!canAdd || availableStock === 0) ? t.bgSection : profile.brandColor,
+                color: (!canAdd || availableStock === 0) && !added ? t.textSecondary : '#fff',
+                cursor: (!canAdd || availableStock === 0) ? 'not-allowed' : 'pointer',
+              }}
             >
               <ShoppingCart className="h-4 w-4" />
-              {added
-                ? '¡Agregado al carrito!'
-                : !canAdd && hasVariants
-                ? 'Selecciona una opción'
-                : availableStock === 0
-                ? 'Sin stock'
+              {added ? '¡Agregado al carrito!'
+                : !canAdd && hasVariants ? 'Selecciona una opción'
+                : availableStock === 0 ? 'Sin stock'
                 : 'Agregar al carrito'}
             </button>
           </div>
@@ -314,7 +810,208 @@ function ProductDetailModal({ product, profile, onClose, onAddToCart }: DetailMo
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────
+// ─── Cart Drawer ──────────────────────────────────────────────────────────────
+
+interface CartDrawerProps {
+  cart: CartItem[];
+  profile: SupplierProfile;
+  t: ThemeTokens;
+  onClose: () => void;
+  onUpdateQty: (id: string, variantId: string | undefined, delta: number) => void;
+  onCheckout: () => void;
+}
+
+function CartDrawer({ cart, profile, t, onClose, onUpdateQty, onCheckout }: CartDrawerProps) {
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+    gsap.from(drawerRef.current, { x: '100%', duration: 0.48, ease: 'power3.out' });
+    gsap.from(backdropRef.current, { opacity: 0, duration: 0.3 });
+  });
+
+  const handleClose = useCallback(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) { onClose(); return; }
+    gsap.to(drawerRef.current, { x: '100%', duration: 0.3, ease: 'power2.in', onComplete: onClose });
+    gsap.to(backdropRef.current, { opacity: 0, duration: 0.25 });
+  }, [onClose]);
+
+  const cartTotal = cart.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+  const cartQty = cart.reduce((sum, i) => sum + i.qty, 0);
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div ref={backdropRef} className="absolute inset-0 bg-black/30" onClick={handleClose} />
+      <div
+        ref={drawerRef}
+        className="absolute right-0 top-0 h-full w-full sm:w-[400px] flex flex-col shadow-2xl"
+        style={{ backgroundColor: t.bgCard }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: t.cardBorderColor }}>
+          <span className="font-bold flex items-center gap-2" style={{ color: t.textPrimary }}>
+            <ShoppingCart className="h-4 w-4" />
+            Carrito ({cartQty})
+          </span>
+          <button onClick={handleClose} style={{ color: t.textSecondary }} className="hover:opacity-70 transition-opacity">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {cart.length === 0 ? (
+            <div className="text-center py-16" style={{ color: t.textSecondary }}>
+              <ShoppingBag className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Tu carrito está vacío</p>
+            </div>
+          ) : (
+            cart.map(({ product, qty, variantId, variantLabel }) => (
+              <div key={`${product.id}-${variantId ?? ''}`} className="flex gap-3">
+                <div
+                  className="relative w-16 h-16 flex-shrink-0 overflow-hidden"
+                  style={{ borderRadius: t.cardRadius, backgroundColor: t.bgSection }}
+                >
+                  <Image src={product.images?.[0] ?? product.image} alt={product.name} fill className="object-cover" sizes="64px" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium line-clamp-1" style={{ color: t.textPrimary }}>{product.name}</p>
+                  {variantLabel && <p className="text-xs mt-0.5" style={{ color: t.textSecondary }}>{variantLabel}</p>}
+                  <p className="text-sm font-bold mt-0.5" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
+                  <div className="flex items-center gap-1 mt-1.5 rounded-full w-fit overflow-hidden border" style={{ borderColor: t.cardBorderColor }}>
+                    <button onClick={() => onUpdateQty(product.id, variantId, -1)} className="w-7 h-7 flex items-center justify-center hover:opacity-70" style={{ color: t.textSecondary }}>
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <span className="w-6 text-center text-xs font-bold" style={{ color: t.textPrimary }}>{qty}</span>
+                    <button onClick={() => onUpdateQty(product.id, variantId, 1)} className="w-7 h-7 flex items-center justify-center hover:opacity-70" style={{ color: t.textSecondary }}>
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {cart.length > 0 && (
+          <div className="border-t px-5 py-5 space-y-3" style={{ borderColor: t.cardBorderColor }}>
+            <div className="flex justify-between items-center">
+              <span className="text-sm" style={{ color: t.textSecondary }}>Total</span>
+              <span className="text-2xl font-black" style={{ color: t.textPrimary }}>${cartTotal.toFixed(2)}</span>
+            </div>
+            <button
+              onClick={() => { handleClose(); setTimeout(onCheckout, 350); }}
+              className="w-full py-3.5 rounded-full text-white font-bold text-sm hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: profile.brandColor }}
+            >
+              Proceder al pago
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Store Footer ─────────────────────────────────────────────────────────────
+
+function StoreFooter({ profile, t }: { profile: SupplierProfile; t: ThemeTokens }) {
+  const footerRef = useRef<HTMLElement>(null);
+
+  useGSAP(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+    const cols = footerRef.current?.querySelectorAll('.footer-col');
+    if (!cols?.length) return;
+    gsap.from(cols, {
+      y: 32, opacity: 0, stagger: 0.1, duration: 0.65, ease: 'power3.out',
+      scrollTrigger: { trigger: footerRef.current, start: 'top 88%' },
+    });
+  }, { scope: footerRef });
+
+  const hasSocials = profile.instagramUrl || profile.facebookUrl || profile.tiktokUrl || profile.storeConfig?.whatsappNumber;
+
+  return (
+    <footer ref={footerRef} className="border-t mt-16" style={{ backgroundColor: t.bgSection, borderColor: t.cardBorderColor }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Brand */}
+        <div className="footer-col">
+          {profile.logo ? (
+            <div className="relative h-10 w-32 mb-4">
+              <Image src={profile.logo} alt={profile.storeName} fill className="object-contain object-left" />
+            </div>
+          ) : (
+            <p className="font-bold text-xl mb-4" style={{ color: t.textPrimary, fontFamily: t.fontHeadline, fontStyle: t.headlineStyle }}>
+              {profile.storeName}
+            </p>
+          )}
+          <p className="text-sm leading-relaxed" style={{ color: t.textSecondary }}>{profile.description}</p>
+        </div>
+
+        {/* Contacto */}
+        <div className="footer-col">
+          <p className="font-bold text-sm mb-4 uppercase tracking-wider" style={{ color: t.textPrimary }}>Contacto</p>
+          <div className="space-y-2.5 text-sm" style={{ color: t.textSecondary }}>
+            {profile.email && <p className="flex items-center gap-2"><Mail className="h-4 w-4 flex-shrink-0" />{profile.email}</p>}
+            {profile.phone && <p className="flex items-center gap-2"><Phone className="h-4 w-4 flex-shrink-0" />{profile.phone}</p>}
+            {profile.address && <p className="flex items-center gap-2"><MapPin className="h-4 w-4 flex-shrink-0" />{profile.address}</p>}
+          </div>
+        </div>
+
+        {/* Redes sociales */}
+        {hasSocials && (
+          <div className="footer-col">
+            <p className="font-bold text-sm mb-4 uppercase tracking-wider" style={{ color: t.textPrimary }}>Síguenos</p>
+            <div className="flex flex-wrap gap-3">
+              {profile.instagramUrl && (
+                <a href={`https://instagram.com/${profile.instagramUrl}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-70"
+                  style={{ backgroundColor: t.bgCard, border: `1px solid ${t.cardBorderColor}`, color: t.textPrimary }}
+                >
+                  <Instagram className="h-3.5 w-3.5" /> Instagram
+                </a>
+              )}
+              {profile.facebookUrl && (
+                <a href={`https://facebook.com/${profile.facebookUrl}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-70"
+                  style={{ backgroundColor: t.bgCard, border: `1px solid ${t.cardBorderColor}`, color: t.textPrimary }}
+                >
+                  <span className="text-[13px] font-black">f</span> Facebook
+                </a>
+              )}
+              {profile.tiktokUrl && (
+                <a href={`https://tiktok.com/@${profile.tiktokUrl}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-70"
+                  style={{ backgroundColor: t.bgCard, border: `1px solid ${t.cardBorderColor}`, color: t.textPrimary }}
+                >
+                  <span className="text-[11px] font-black">TT</span> TikTok
+                </a>
+              )}
+              {profile.storeConfig?.whatsappNumber && (
+                <a href={`https://wa.me/${profile.storeConfig.whatsappNumber}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-70"
+                  style={{ backgroundColor: '#25D366', color: '#fff' }}
+                >
+                  <span className="text-[11px] font-black">WA</span> WhatsApp
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t px-4 sm:px-6 py-4 flex items-center justify-between max-w-7xl mx-auto" style={{ borderColor: t.cardBorderColor }}>
+        <p className="text-xs" style={{ color: t.textMuted }}>© {new Date().getFullYear()} {profile.storeName}</p>
+        {profile.showPoweredBy && (
+          <p className="text-xs" style={{ color: t.textMuted }}>Powered by <span className="font-bold">MARIASCLUB™</span></p>
+        )}
+      </div>
+    </footer>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PublicStorePage({
   params,
@@ -330,6 +1027,7 @@ export default function PublicStorePage({
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<InventoryProduct | null>(null);
+  const productsRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const allSuppliers = getSuppliers();
@@ -343,28 +1041,30 @@ export default function PublicStorePage({
   if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-[#8F8780] font-body">Cargando tienda…</p>
+        <p style={{ fontFamily: 'system-ui', color: '#888' }}>Cargando tienda…</p>
       </div>
     );
   }
 
+  const t = getTheme(profile.storeTheme);
+  const cardStyle = profile.cardStyle ?? 'rounded';
   const activeProducts = inventory.filter((p) => p.active && p.stock > 0);
   const categories = Array.from(new Set(activeProducts.map((p) => p.category)));
-
   const filtered = activeProducts.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = !filterCat || p.category === filterCat;
     return matchSearch && matchCat;
   });
 
-  // ─── Cart logic ──────────────────────────────────────────
+  const scrollToProducts = () => {
+    productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const addToCart = useCallback((product: InventoryProduct, variantId?: string, variantLabel?: string) => {
     setCart((prev) => {
       const ex = prev.find((i) => i.product.id === product.id && i.variantId === variantId);
       if (ex) return prev.map((i) =>
-        i.product.id === product.id && i.variantId === variantId
-          ? { ...i, qty: i.qty + 1 }
-          : i,
+        i.product.id === product.id && i.variantId === variantId ? { ...i, qty: i.qty + 1 } : i,
       );
       return [...prev, { product, qty: 1, variantId, variantLabel }];
     });
@@ -372,296 +1072,117 @@ export default function PublicStorePage({
   }, []);
 
   const updateCartQty = (id: string, variantId: string | undefined, delta: number) => {
-    setCart((prev) => prev
-      .map((i) => i.product.id === id && i.variantId === variantId ? { ...i, qty: i.qty + delta } : i)
-      .filter((i) => i.qty > 0),
+    setCart((prev) =>
+      prev.map((i) => i.product.id === id && i.variantId === variantId ? { ...i, qty: i.qty + delta } : i)
+        .filter((i) => i.qty > 0),
     );
   };
 
-  const cartTotal = cart.reduce((sum, i) => sum + i.product.price * i.qty, 0);
   const cartQty = cart.reduce((sum, i) => sum + i.qty, 0);
+  const annBg = profile.announcementBg || profile.brandColor;
 
   return (
-    <div className="min-h-screen" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ backgroundColor: t.bgPage, color: t.textPrimary, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 shadow-sm" style={{ backgroundColor: profile.brandColor }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {profile.logo ? (
-              <div className="relative h-9 w-28">
-                <Image src={profile.logo} alt={profile.storeName} fill className="object-contain object-left" />
-              </div>
-            ) : (
-              <span className="text-white font-bold text-xl tracking-tight">{profile.storeName}</span>
-            )}
-          </div>
-          <nav className="hidden md:flex items-center gap-6 text-white/90 text-sm">
-            <button onClick={() => setFilterCat('')} className="hover:text-white transition-colors font-medium">Inicio</button>
-            {categories.slice(0, 4).map((cat) => (
-              <button key={cat} onClick={() => setFilterCat(cat)} className="hover:text-white transition-colors">{cat}</button>
-            ))}
-          </nav>
-          <button
-            onClick={() => setCartOpen(true)}
-            className="relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold text-white border-2 border-white/30 hover:border-white/60 transition-colors"
-          >
-            <ShoppingBag className="h-4 w-4" />
-            <span className="hidden sm:block">Carrito</span>
-            {cartQty > 0 && (
-              <span
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center"
-                style={{ backgroundColor: profile.accentColor, color: '#fff' }}
-              >
-                {cartQty}
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* Banner */}
-      {profile.bannerUrl && (
-        <div className="relative h-52 sm:h-72 overflow-hidden">
-          <Image src={profile.bannerUrl} alt="Banner" fill className="object-cover" priority sizes="100vw" />
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4" style={{ background: `${profile.brandColor}CC` }}>
-            <h1 className="text-white font-black text-3xl sm:text-5xl mb-2">{profile.storeName}</h1>
-            <p className="text-white/85 text-sm sm:text-base max-w-xl">{profile.description}</p>
-          </div>
-        </div>
+      {/* Announcement Bar */}
+      {profile.announcementText && (
+        <AnnouncementBar text={profile.announcementText} bg={annBg} />
       )}
 
+      {/* Header */}
+      <StoreHeader
+        profile={profile}
+        t={t}
+        categories={categories}
+        activeCategory={filterCat}
+        onCategoryClick={setFilterCat}
+        cartQty={cartQty}
+        onCartOpen={() => setCartOpen(true)}
+      />
+
+      {/* Hero */}
+      <StoreHero profile={profile} t={t} onCtaClick={scrollToProducts} />
+
+      {/* Category Filter */}
+      <CategoryFilter
+        profile={profile}
+        t={t}
+        categories={categories}
+        activeCategory={filterCat}
+        search={search}
+        onCategoryClick={setFilterCat}
+        onSearchChange={setSearch}
+      />
+
       {/* Products */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-        {/* Search + filter */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar productos…"
-              className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 bg-white"
-              style={{ '--tw-ring-color': profile.brandColor } as React.CSSProperties}
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setFilterCat('')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${!filterCat ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              style={!filterCat ? { backgroundColor: profile.brandColor } : {}}
-            >
-              Todos
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setFilterCat(filterCat === cat ? '' : cat)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${filterCat === cat ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                style={filterCat === cat ? { backgroundColor: profile.brandColor } : {}}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+      <main ref={productsRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+        {/* Section heading */}
+        <div className="mb-8 flex items-baseline justify-between">
+          <h2
+            className="text-2xl font-bold"
+            style={{ color: t.textPrimary, fontFamily: t.fontHeadline, fontStyle: t.headlineStyle }}
+          >
+            {filterCat || 'Todos los productos'}
+          </h2>
+          <span className="text-sm" style={{ color: t.textSecondary }}>{filtered.length} artículos</span>
         </div>
 
-        {filtered.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Sin productos disponibles</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {filtered.map((p) => {
-              const primaryImg = p.images?.[0] ?? p.image;
-              const imgCount = p.images?.length ?? 1;
-              const hasVariants = !!(p.hasVariants && (p.variants?.length ?? 0) > 0);
-              const hasVideo = !!(p.videoUrl || p.videoFile);
+        {/* Mobile search */}
+        <div className="relative mb-6 sm:hidden">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: t.textSecondary }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar productos…"
+            className="w-full rounded-full pl-9 pr-4 py-2.5 text-sm focus:outline-none"
+            style={{ backgroundColor: t.inputBg, border: `1px solid ${t.cardBorderColor}`, color: t.textPrimary }}
+          />
+        </div>
 
-              return (
-                <div key={p.id} className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow group">
-                  {/* Image — clickable to open detail */}
-                  <button
-                    onClick={() => setSelectedProduct(p)}
-                    className="relative w-full aspect-square overflow-hidden bg-gray-50 block"
-                  >
-                    <Image
-                      src={primaryImg}
-                      alt={p.name}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      sizes="(max-width: 640px) 50vw, 25vw"
-                    />
-                    {/* Badges overlay */}
-                    <div className="absolute top-2 left-2 flex flex-col gap-1">
-                      {imgCount > 1 && (
-                        <span className="text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded font-bold">
-                          {imgCount} fotos
-                        </span>
-                      )}
-                      {hasVideo && (
-                        <span className="flex items-center gap-0.5 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded font-bold">
-                          <Play className="h-2.5 w-2.5 fill-white" /> Video
-                        </span>
-                      )}
-                    </div>
-                    {/* View detail hint */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-gray-900 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow">
-                        <Eye className="h-3.5 w-3.5" /> Ver detalle
-                      </span>
-                    </div>
-                  </button>
-
-                  <div className="p-4">
-                    <p className="text-xs text-gray-400 mb-1">{p.category}</p>
-                    <button
-                      onClick={() => setSelectedProduct(p)}
-                      className="text-sm font-semibold text-gray-900 line-clamp-2 mb-1 text-left hover:underline w-full"
-                    >
-                      {p.name}
-                    </button>
-                    <p className="text-lg font-black mb-2" style={{ color: profile.accentColor }}>${p.price.toFixed(2)}</p>
-
-                    {/* Variant info or quick add */}
-                    {hasVariants ? (
-                      <button
-                        onClick={() => setSelectedProduct(p)}
-                        className="w-full py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 border-2 transition-all hover:text-white"
-                        style={{ borderColor: profile.brandColor, color: profile.brandColor }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = profile.brandColor; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ''; (e.currentTarget as HTMLButtonElement).style.color = profile.brandColor; }}
-                      >
-                        Seleccionar opciones
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => addToCart(p)}
-                        className="w-full py-2 rounded-xl text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
-                        style={{ backgroundColor: profile.brandColor }}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Agregar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <ProductGrid
+          products={filtered}
+          profile={profile}
+          t={t}
+          cardStyle={cardStyle}
+          onViewDetail={setSelectedProduct}
+          onAddToCart={(p) => addToCart(p)}
+        />
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 mt-12">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div>
-            {profile.logo ? (
-              <div className="relative h-10 w-32 mb-3">
-                <Image src={profile.logo} alt={profile.storeName} fill className="object-contain object-left" />
-              </div>
-            ) : (
-              <p className="font-black text-xl mb-3" style={{ color: profile.brandColor }}>{profile.storeName}</p>
-            )}
-            <p className="text-sm text-gray-500">{profile.description}</p>
-          </div>
-          <div>
-            <p className="font-bold text-gray-800 mb-3 text-sm">Contacto</p>
-            <div className="space-y-2 text-sm text-gray-500">
-              {profile.email && <p className="flex items-center gap-2"><Mail className="h-4 w-4" />{profile.email}</p>}
-              {profile.phone && <p className="flex items-center gap-2"><Phone className="h-4 w-4" />{profile.phone}</p>}
-              {profile.address && <p className="flex items-center gap-2"><MapPin className="h-4 w-4" />{profile.address}</p>}
-            </div>
-          </div>
-        </div>
-        <div className="border-t border-gray-100 px-4 sm:px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-          <p className="text-xs text-gray-400">© {new Date().getFullYear()} {profile.storeName}</p>
-          {profile.showPoweredBy && (
-            <p className="text-xs text-gray-400">Powered by <span className="font-bold text-gray-600">MARIASCLUB™</span></p>
-          )}
-        </div>
-      </footer>
+      <StoreFooter profile={profile} t={t} />
 
       {/* Product Detail Modal */}
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
           profile={profile}
+          t={t}
           onClose={() => setSelectedProduct(null)}
           onAddToCart={addToCart}
         />
       )}
 
-      {/* Checkout modal */}
+      {/* Cart Drawer */}
+      {cartOpen && (
+        <CartDrawer
+          cart={cart}
+          profile={profile}
+          t={t}
+          onClose={() => setCartOpen(false)}
+          onUpdateQty={updateCartQty}
+          onCheckout={() => setCheckoutOpen(true)}
+        />
+      )}
+
+      {/* Checkout */}
       {checkoutOpen && (
         <SupplierCheckoutModal
           cart={cart}
           profile={profile}
           onClose={() => setCheckoutOpen(false)}
-          onSuccess={() => { setCart([]); setCartOpen(false); }}
+          onSuccess={() => { setCart([]); setCheckoutOpen(false); }}
         />
-      )}
-
-      {/* Cart drawer */}
-      {cartOpen && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/20" onClick={() => setCartOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-full sm:w-[380px] bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <span className="font-bold text-gray-900 flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                Carrito ({cartQty})
-              </span>
-              <button onClick={() => setCartOpen(false)} className="text-gray-400 hover:text-gray-700">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {cart.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
-                  <ShoppingBag className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Tu carrito está vacío</p>
-                </div>
-              ) : (
-                cart.map(({ product, qty, variantId, variantLabel }) => (
-                  <div key={`${product.id}-${variantId ?? ''}`} className="flex gap-3">
-                    <div className="relative w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-gray-50">
-                      <Image src={product.images?.[0] ?? product.image} alt={product.name} fill className="object-cover" sizes="64px" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 line-clamp-1">{product.name}</p>
-                      {variantLabel && (
-                        <p className="text-xs text-gray-400 mt-0.5">{variantLabel}</p>
-                      )}
-                      <p className="text-sm font-bold mt-0.5" style={{ color: profile.accentColor }}>${product.price.toFixed(2)}</p>
-                      <div className="flex items-center gap-1 mt-1.5 border border-gray-200 rounded-lg w-fit">
-                        <button onClick={() => updateCartQty(product.id, variantId, -1)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-50"><Minus className="h-3 w-3" /></button>
-                        <span className="w-6 text-center text-xs font-bold">{qty}</span>
-                        <button onClick={() => updateCartQty(product.id, variantId, 1)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-50"><Plus className="h-3 w-3" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            {cart.length > 0 && (
-              <div className="border-t border-gray-100 px-5 py-5 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Total</span>
-                  <span className="text-xl font-black" style={{ color: profile.brandColor }}>${cartTotal.toFixed(2)}</span>
-                </div>
-                <button
-                  onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}
-                  className="w-full py-3 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: profile.brandColor }}
-                >
-                  Proceder al pago
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
       )}
     </div>
   );

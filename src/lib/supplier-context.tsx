@@ -16,10 +16,12 @@ import {
   type InventoryProduct,
   type VariantType,
   type ProductVariant,
+  type StoreTheme,
+  type CardStyle,
 } from './suppliers-store';
 
 // ─── Re-export types for backward compatibility ─────────────────
-export type { ShippingMethodType, ZonedPricing, ShippingMethod, BankInfo, StoreConfig, SupplierProfile, InventoryProduct, VariantType, ProductVariant };
+export type { ShippingMethodType, ZonedPricing, ShippingMethod, BankInfo, StoreConfig, SupplierProfile, InventoryProduct, VariantType, ProductVariant, StoreTheme, CardStyle };
 export { DEFAULT_STORE_CONFIG };
 
 // ─── Context type ──────────────────────────────────────────────
@@ -50,6 +52,14 @@ const FALLBACK_PROFILE: SupplierProfile = {
   bannerUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=70',
   showPoweredBy: true,
   storeConfig: DEFAULT_STORE_CONFIG,
+  storeTheme: 'moderno',
+  heroCtaText: 'Ver colección',
+  announcementText: '',
+  announcementBg: '',
+  cardStyle: 'rounded',
+  instagramUrl: '',
+  facebookUrl: '',
+  tiktokUrl: '',
 };
 
 // ─── Context ───────────────────────────────────────────────────
