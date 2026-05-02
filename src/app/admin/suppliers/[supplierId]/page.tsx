@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { use } from 'react';
 import {
   ArrowLeft, Package, TrendingUp, AlertTriangle, DollarSign,
   CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clock,
+  Pencil, Video, X, Save, Upload, Link as LinkIcon,
 } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { getSupplier, updateSupplierInventory, type SupplierRecord, type InventoryProduct } from '@/lib/suppliers-store';
@@ -21,6 +22,13 @@ export default function AdminSupplierDetailPage({
   const [record, setRecord] = useState<SupplierRecord | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+
+  // ── Edición de producto ───────────────────────────────────────
+  const [editing, setEditing] = useState<InventoryProduct | null>(null);
+  const [editForm, setEditForm] = useState<Partial<InventoryProduct>>({});
+  const [videoTab, setVideoTab] = useState<'url' | 'file'>('url');
+  const [videoFileError, setVideoFileError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const r = getSupplier(supplierId);
@@ -53,6 +61,38 @@ export default function AdminSupplierDetailPage({
     );
     updateSupplierInventory(supplierId, updated);
     setRecord({ ...record, inventory: updated });
+  }
+
+  function openEdit(p: InventoryProduct) {
+    setEditing(p);
+    setEditForm({ ...p });
+    setVideoTab(p.videoUrl ? 'url' : 'file');
+    setVideoFileError('');
+  }
+
+  function handleVideoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      setVideoFileError('El archivo supera 50 MB. Usa una URL de video en su lugar.');
+      return;
+    }
+    setVideoFileError('');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setEditForm((f) => ({ ...f, videoFile: ev.target?.result as string, videoUrl: '' }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleSaveEdit() {
+    if (!record || !editing) return;
+    const updated = record.inventory.map((p) =>
+      p.id === editing.id ? { ...p, ...editForm } : p,
+    );
+    updateSupplierInventory(supplierId, updated);
+    setRecord({ ...record, inventory: updated });
+    setEditing(null);
   }
 
   if (!record) {
@@ -272,7 +312,7 @@ export default function AdminSupplierDetailPage({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#F7F6F5]">
-                      {['Producto', 'SKU', 'Categoría', 'Precio', 'Stock', 'Activo'].map((h) => (
+                      {['Producto', 'SKU', 'Categoría', 'Precio', 'Stock', 'Activo', ''].map((h) => (
                         <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-[#8F8780]">
                           {h}
                         </th>
@@ -307,6 +347,15 @@ export default function AdminSupplierDetailPage({
                           {p.active
                             ? <CheckCircle2 className="h-4 w-4 text-green-500" />
                             : <XCircle className="h-4 w-4 text-[#C0BAB2]" />}
+                        </td>
+                        <td className="px-5 py-3">
+                          <button
+                            onClick={() => openEdit(p)}
+                            className="flex items-center gap-1 text-xs font-semibold text-[#6B6359] hover:text-[#0A0A0A] border border-[#EDEBE8] hover:border-[#0A0A0A] px-2.5 py-1.5 rounded-lg transition-all"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Editar
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -343,6 +392,180 @@ export default function AdminSupplierDetailPage({
         </div>
 
       </main>
+
+      {/* ── Modal de edición de producto ─────────────────────────── */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#F7F6F5]">
+              <h3 className="text-base font-bold text-[#0A0A0A] flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-[#8F8780]" />
+                Editar producto
+              </h3>
+              <button
+                onClick={() => setEditing(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F7F6F5] text-[#8F8780] hover:text-[#0A0A0A] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+
+              {/* Nombre */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-1.5">Nombre</label>
+                <input
+                  type="text"
+                  value={editForm.name ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  className="w-full h-10 border border-[#E0E0E0] px-3 text-sm text-[#0A0A0A] rounded-lg focus:outline-none focus:border-[#0A0A0A] transition-colors"
+                />
+              </div>
+
+              {/* Precio + Stock */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-1.5">Precio costo ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.price ?? ''}
+                    onChange={(e) => setEditForm((f) => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
+                    className="w-full h-10 border border-[#E0E0E0] px-3 text-sm text-[#0A0A0A] rounded-lg focus:outline-none focus:border-[#0A0A0A] transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-1.5">Stock</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.stock ?? ''}
+                    onChange={(e) => setEditForm((f) => ({ ...f, stock: parseInt(e.target.value) || 0 }))}
+                    className="w-full h-10 border border-[#E0E0E0] px-3 text-sm text-[#0A0A0A] rounded-lg focus:outline-none focus:border-[#0A0A0A] transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Descripción */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-1.5">Descripción</label>
+                <textarea
+                  rows={3}
+                  value={editForm.description ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                  className="w-full border border-[#E0E0E0] px-3 py-2 text-sm text-[#0A0A0A] rounded-lg focus:outline-none focus:border-[#0A0A0A] transition-colors resize-none"
+                />
+              </div>
+
+              {/* Video */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-2 flex items-center gap-1.5">
+                  <Video className="h-3.5 w-3.5 text-[#8F8780]" />
+                  Video del producto
+                </label>
+
+                {/* Tabs URL / Archivo */}
+                <div className="flex gap-1 p-1 bg-[#F7F6F5] rounded-lg mb-3">
+                  <button
+                    type="button"
+                    onClick={() => { setVideoTab('url'); setEditForm((f) => ({ ...f, videoFile: '' })); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all ${
+                      videoTab === 'url' ? 'bg-white shadow text-[#0A0A0A]' : 'text-[#8F8780] hover:text-[#0A0A0A]'
+                    }`}
+                  >
+                    <LinkIcon className="h-3 w-3" />
+                    URL de video
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setVideoTab('file'); setEditForm((f) => ({ ...f, videoUrl: '' })); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-md transition-all ${
+                      videoTab === 'file' ? 'bg-white shadow text-[#0A0A0A]' : 'text-[#8F8780] hover:text-[#0A0A0A]'
+                    }`}
+                  >
+                    <Upload className="h-3 w-3" />
+                    Subir archivo
+                  </button>
+                </div>
+
+                {videoTab === 'url' ? (
+                  <div>
+                    <input
+                      type="url"
+                      value={editForm.videoUrl ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, videoUrl: e.target.value }))}
+                      placeholder="https://youtube.com/watch?v=... o enlace .mp4"
+                      className="w-full h-10 border border-[#E0E0E0] px-3 text-sm text-[#0A0A0A] rounded-lg focus:outline-none focus:border-[#0A0A0A] transition-colors"
+                    />
+                    <p className="text-[11px] text-[#8F8780] mt-1.5 font-body">
+                      Compatible: YouTube, Vimeo, o enlace directo a archivo .mp4
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoFile}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-24 border-2 border-dashed border-[#E0E0E0] rounded-lg flex flex-col items-center justify-center gap-2 hover:border-[#0A0A0A] hover:bg-[#FAFAFA] transition-all"
+                    >
+                      <Upload className="h-5 w-5 text-[#8F8780]" />
+                      <span className="text-xs text-[#8F8780] font-body">
+                        {editForm.videoFile ? 'Video cargado ✓ — clic para cambiar' : 'Clic para seleccionar archivo de video'}
+                      </span>
+                    </button>
+                    {videoFileError && (
+                      <p className="text-xs text-red-600 mt-1.5 font-body">{videoFileError}</p>
+                    )}
+                    <p className="text-[11px] text-[#8F8780] mt-1.5 font-body">
+                      Máx. 50 MB · MP4, MOV, WebM. Para videos grandes usa URL.
+                    </p>
+                  </div>
+                )}
+
+                {/* Preview/limpiar video existente */}
+                {(editForm.videoUrl || editForm.videoFile) && (
+                  <button
+                    type="button"
+                    onClick={() => setEditForm((f) => ({ ...f, videoUrl: '', videoFile: '' }))}
+                    className="mt-2 text-[11px] text-red-500 hover:text-red-700 font-semibold"
+                  >
+                    × Quitar video
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#F7F6F5]">
+              <button
+                onClick={() => setEditing(null)}
+                className="px-4 py-2 text-sm font-semibold text-[#6B6359] hover:text-[#0A0A0A] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="flex items-center gap-2 px-5 py-2 bg-[#0A0A0A] text-white text-sm font-semibold rounded-xl hover:bg-[#222] transition-colors"
+              >
+                <Save className="h-4 w-4" />
+                Guardar cambios
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
