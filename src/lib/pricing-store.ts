@@ -1,5 +1,9 @@
+'use client';
+
 // Almacén de precios administrado exclusivamente por el admin.
 // Los proveedores NO tienen acceso a este módulo ni a sus datos.
+
+import { useState, useEffect } from 'react';
 
 export interface ProductPricing {
   price: number; // Precio de menudeo en MariasClub (lo que ve el cliente)
@@ -88,4 +92,14 @@ export function setSupplierWholesaleRate(supplierId: string, rate: number): void
 export function getSupplierWholesaleRate(supplierId: string): number {
   const data = getPricing();
   return data.suppliers[supplierId]?.wholesaleRate ?? DEFAULT_WHOLESALE_RATES[supplierId] ?? 70;
+}
+
+/** Hook React: precio efectivo de un producto en MariasClub.
+ *  Retorna basePrice durante SSR y actualiza al montar en cliente. */
+export function useEffectivePrice(productId: string, basePrice: number): number {
+  const [price, setPrice] = useState(basePrice);
+  useEffect(() => {
+    setPrice(getEffectivePrice(productId, basePrice));
+  }, [productId, basePrice]);
+  return price;
 }

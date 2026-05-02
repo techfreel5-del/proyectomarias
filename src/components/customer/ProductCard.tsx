@@ -8,6 +8,7 @@ import { gsap } from '@/lib/gsap';
 import { ShoppingBag, Heart } from 'lucide-react';
 import { Product } from '@/lib/mock-data';
 import { useCart } from '@/lib/cart-context';
+import { useEffectivePrice } from '@/lib/pricing-store';
 
 interface ProductCardProps {
   product: Product;
@@ -61,8 +62,10 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
     };
   }, { scope: cardRef });
 
+  const effectivePrice = useEffectivePrice(product.id, product.price);
+
   const discount = product.originalPrice
-    ? Math.round((1 - product.price / product.originalPrice) * 100)
+    ? Math.round((1 - effectivePrice / product.originalPrice) * 100)
     : null;
 
   return (
@@ -124,7 +127,7 @@ export function ProductCard({ product, variant = 'default' }: ProductCardProps) 
 
         <div className="flex items-center gap-2">
           <span className={`text-sm font-body ${product.originalPrice ? 'text-[#E4002B] font-bold' : 'text-[#222222]'}`}>
-            ${product.price.toFixed(2)}
+            ${effectivePrice.toFixed(2)}
           </span>
           {product.originalPrice && (
             <span className="text-sm text-[#828282] line-through font-body">

@@ -7,6 +7,7 @@ import { useGSAP } from '@gsap/react';
 import { gsap } from '@/lib/gsap';
 import { Product } from '@/lib/mock-data';
 import { useCart } from '@/lib/cart-context';
+import { useEffectivePrice } from '@/lib/pricing-store';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -65,9 +66,10 @@ export function ProductDetail({ product }: ProductDetailProps) {
     gsap.from(infoRef.current, { opacity: 0, x: 30, duration: 0.8, ease: 'power2.out', delay: 0.1 });
   }, []);
 
-  const total = isAdvance ? product.price * 0.5 : product.price * quantity;
+  const effectivePrice = useEffectivePrice(product.id, product.price);
+  const total = isAdvance ? effectivePrice * 0.5 : effectivePrice * quantity;
   const discount = product.originalPrice
-    ? Math.round((1 - product.price / product.originalPrice) * 100)
+    ? Math.round((1 - effectivePrice / product.originalPrice) * 100)
     : null;
 
   return (
@@ -172,7 +174,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
               </h1>
               <div className="flex items-baseline gap-3">
                 <span className="text-2xl font-body font-black text-[#0A0A0A]">
-                  ${product.price.toFixed(2)}
+                  ${effectivePrice.toFixed(2)}
                 </span>
                 {product.originalPrice && (
                   <>
@@ -249,7 +251,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 }`}
               >
                 Full Payment
-                <div className="text-sm font-black mt-0.5">${(product.price * quantity).toFixed(2)}</div>
+                <div className="text-sm font-black mt-0.5">${(effectivePrice * quantity).toFixed(2)}</div>
               </button>
               <button
                 onClick={() => setIsAdvance(true)}
@@ -258,7 +260,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 }`}
               >
                 Anticipo (50%)
-                <div className="text-sm font-black text-[#00C9B1] mt-0.5">${(product.price * 0.5).toFixed(2)} now</div>
+                <div className="text-sm font-black text-[#00C9B1] mt-0.5">${(effectivePrice * 0.5).toFixed(2)} now</div>
               </button>
             </div>
 
@@ -298,7 +300,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
               className="w-full h-12 bg-[#0A0A0A] text-white rounded-xl text-sm font-bold font-body hover:bg-[#00C9B1] transition-all duration-300 flex items-center justify-center gap-2"
             >
               {isAdvance
-                ? `Pagar $${(product.price * 0.5).toFixed(2)} de anticipo`
+                ? `Pagar $${(effectivePrice * 0.5).toFixed(2)} de anticipo`
                 : `Ordenar ahora — $${total.toFixed(2)}`}
             </button>
 
