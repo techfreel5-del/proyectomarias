@@ -169,7 +169,7 @@ export default function AltaMasivaPage() {
           selected: true,
         }));
         setItems(detected);
-        setStep(2);
+        setStep(3);
         setLoading(false);
       };
       img.onerror = () => {
