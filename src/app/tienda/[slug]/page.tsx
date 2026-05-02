@@ -1036,6 +1036,18 @@ export default function PublicStorePage({
     }
   }, [slug]);
 
+  // ⚠️ useCallback must be called unconditionally (before any early return)
+  const addToCart = useCallback((product: InventoryProduct, variantId?: string, variantLabel?: string) => {
+    setCart((prev) => {
+      const ex = prev.find((i) => i.product.id === product.id && i.variantId === variantId);
+      if (ex) return prev.map((i) =>
+        i.product.id === product.id && i.variantId === variantId ? { ...i, qty: i.qty + 1 } : i,
+      );
+      return [...prev, { product, qty: 1, variantId, variantLabel }];
+    });
+    setSelectedProduct(null);
+  }, []);
+
   if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1057,17 +1069,6 @@ export default function PublicStorePage({
   const scrollToProducts = () => {
     productsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-
-  const addToCart = useCallback((product: InventoryProduct, variantId?: string, variantLabel?: string) => {
-    setCart((prev) => {
-      const ex = prev.find((i) => i.product.id === product.id && i.variantId === variantId);
-      if (ex) return prev.map((i) =>
-        i.product.id === product.id && i.variantId === variantId ? { ...i, qty: i.qty + 1 } : i,
-      );
-      return [...prev, { product, qty: 1, variantId, variantLabel }];
-    });
-    setSelectedProduct(null);
-  }, []);
 
   const updateCartQty = (id: string, variantId: string | undefined, delta: number) => {
     setCart((prev) =>
