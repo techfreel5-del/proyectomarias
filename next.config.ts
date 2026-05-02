@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Turbopack (Next.js 16 default bundler)
+  // @imgly/background-removal usa onnxruntime-web (browser) — no necesita alias adicional
+  turbopack: {},
 };
 
 export default nextConfig;
