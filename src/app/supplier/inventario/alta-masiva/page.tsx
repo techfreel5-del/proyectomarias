@@ -29,70 +29,57 @@ interface DetectedItem {
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Unitalla'];
 const CATEGORIES = ['Fashion', 'Appliances', 'Electronics', 'Sports', 'Coffee', 'Hogar', 'Otro'];
 
-// ── Canvas helpers ────────────────────────────────────────────────────────────
+// ── Canvas crop helper — efecto studio (runs in browser) ─────────────────────
+//
+// Genera un canvas cuadrado con fondo blanco/degradado suave y el producto
+// centrado con padding interior generoso, simulando una foto de estudio.
 
-// Paso 1: recorta la región del artículo y la devuelve como Blob PNG
-function cropToBlob(imgEl: HTMLImageElement, box: BoundingBox): Promise<Blob> {
+function cropImageToDataURL(
+  imgEl: HTMLImageElement,
+  box: BoundingBox,
+): string {
   const iw = imgEl.naturalWidth;
   const ih = imgEl.naturalHeight;
+
+  // Región de recorte con padding del 5 % alrededor del artículo detectado
   const pad = 0.05;
   const srcX = Math.max(0, (box.x - pad) * iw);
   const srcY = Math.max(0, (box.y - pad) * ih);
   const srcW = Math.min(iw - srcX, (box.w + pad * 2) * iw);
   const srcH = Math.min(ih - srcY, (box.h + pad * 2) * ih);
 
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(srcW);
-  canvas.height = Math.round(srcH);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return Promise.reject(new Error('No canvas context'));
-  ctx.drawImage(imgEl, Math.round(srcX), Math.round(srcY), Math.round(srcW), Math.round(srcH), 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png'),
-  );
-}
+  // Canvas cuadrado — tamaño basado en el lado más largo, entre 400 y 700 px
+  const side = Math.round(Math.min(700, Math.max(400, Math.max(srcW, srcH) * 1.15)));
 
-// Paso 2: compone un Blob PNG con fondo transparente sobre canvas estudio blanco
-async function compositeOnStudio(transparentBlob: Blob): Promise<string> {
-  const url = URL.createObjectURL(transparentBlob);
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = reject;
-    el.src = url;
-  });
-  URL.revokeObjectURL(url);
-
-  const side = 500;
   const canvas = document.createElement('canvas');
   canvas.width = side;
   canvas.height = side;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  // Fondo degradado radial blanco → gris muy claro (look softbox/estudio)
+  // Fondo: degradado radial blanco → gris muy claro (look studio/softbox)
   const grad = ctx.createRadialGradient(side / 2, side / 2, 0, side / 2, side / 2, side * 0.75);
   grad.addColorStop(0, '#FFFFFF');
   grad.addColorStop(1, '#F0EFEE');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, side, side);
 
-  // Centrar el producto con 10 % de padding interior
+  // Escalar el recorte para que quepa dentro del canvas con 10 % de margen interior
   const innerPad = side * 0.10;
   const availW = side - innerPad * 2;
   const availH = side - innerPad * 2;
-  const scale = Math.min(availW / img.naturalWidth, availH / img.naturalHeight);
-  const dw = Math.round(img.naturalWidth * scale);
-  const dh = Math.round(img.naturalHeight * scale);
+  const scale = Math.min(availW / srcW, availH / srcH);
+  const dw = Math.round(srcW * scale);
+  const dh = Math.round(srcH * scale);
   const dx = Math.round((side - dw) / 2);
   const dy = Math.round((side - dh) / 2);
 
-  // Sombra sutil (simula superficie de estudio)
+  // Sombra sutil debajo del producto (simula superficie de estudio)
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.15)';
+  ctx.shadowColor = 'rgba(0,0,0,0.18)';
   ctx.shadowBlur = Math.round(side * 0.06);
-  ctx.shadowOffsetY = Math.round(side * 0.02);
-  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.shadowOffsetY = Math.round(side * 0.025);
+  ctx.drawImage(imgEl, Math.round(srcX), Math.round(srcY), Math.round(srcW), Math.round(srcH), dx, dy, dw, dh);
   ctx.restore();
 
   return canvas.toDataURL('image/jpeg', 0.92);
@@ -124,7 +111,6 @@ export default function AltaMasivaPage() {
   const [imageMime, setImageMime]       = useState('image/jpeg');
   const [isDragging, setIsDragging]     = useState(false);
   const [loading, setLoading]           = useState(false);
-  const [bgProgress, setBgProgress]     = useState('');
   const [error, setError]               = useState('');
 
   // Step 3 — detected items
@@ -176,11 +162,9 @@ export default function AltaMasivaPage() {
   const handleAnalyze = async () => {
     if (!imageBase64) { setError('Sube una foto primero.'); return; }
     setLoading(true);
-    setBgProgress('');
     setError('');
 
     try {
-      // 1. Detectar bounding boxes con Claude
       const res = await fetch('/api/supplier/bulk-photo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -201,64 +185,33 @@ export default function AltaMasivaPage() {
 
       const boxes: BoundingBox[] = data.boxes;
 
-      // 2. Cargar el elemento imagen para recortar
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image();
-        el.onload = () => resolve(el);
-        el.onerror = reject;
-        el.src = imagePreview;
-      });
-      imgRef.current = img;
-
-      // 3. Importar removeBackground de forma lazy (evita SSR; descarga modelo ~80 MB la primera vez)
-      setBgProgress('Descargando modelo IA… (solo la primera vez)');
-      const { removeBackground } = await import('@imgly/background-removal');
-
-      // 4. Para cada artículo: recortar → remover fondo → componer estudio
-      const detected: DetectedItem[] = [];
-      for (let i = 0; i < boxes.length; i++) {
-        setBgProgress(`Eliminando fondo ${i + 1} de ${boxes.length}…`);
-        try {
-          const cropBlob = await cropToBlob(img, boxes[i]);
-          const transparentBlob = await removeBackground(cropBlob);
-          const croppedImage = await compositeOnStudio(transparentBlob);
-          detected.push({
-            id: `item-${Date.now()}-${i}`,
-            croppedImage,
-            name: `${baseModelName.trim()} ${i + 1}`,
-            price,
-            stock,
-            sizes: [...sizes],
-            colors: [...colors],
-            category,
-            selected: true,
-          });
-        } catch {
-          // Si falla la remoción de fondo para un artículo, usa el recorte simple como fallback
-          const cropBlob = await cropToBlob(img, boxes[i]);
-          const croppedImage = await compositeOnStudio(cropBlob);
-          detected.push({
-            id: `item-${Date.now()}-${i}`,
-            croppedImage,
-            name: `${baseModelName.trim()} ${i + 1}`,
-            price,
-            stock,
-            sizes: [...sizes],
-            colors: [...colors],
-            category,
-            selected: true,
-          });
-        }
-      }
-
-      setItems(detected);
-      setStep(3);
-      setLoading(false);
-      setBgProgress('');
+      // Load image element to crop
+      const img = new Image();
+      img.onload = () => {
+        imgRef.current = img;
+        const detected: DetectedItem[] = boxes.map((box, i) => ({
+          id: `item-${Date.now()}-${i}`,
+          croppedImage: cropImageToDataURL(img, box),
+          name: `${baseModelName.trim()} ${i + 1}`,
+          price,
+          stock,
+          sizes: [...sizes],
+          colors: [...colors],
+          category,
+          selected: true,
+        }));
+        setItems(detected);
+        setStep(3);
+        setLoading(false);
+      };
+      img.onerror = () => {
+        setError('Error al procesar la imagen localmente.');
+        setLoading(false);
+      };
+      img.src = imagePreview;
     } catch {
       setError('Error de conexión. Verifica tu internet e intenta de nuevo.');
       setLoading(false);
-      setBgProgress('');
     }
   };
 
@@ -612,7 +565,7 @@ export default function AltaMasivaPage() {
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {bgProgress || 'Detectando artículos con IA…'}
+                Detectando artículos con IA…
               </>
             ) : (
               <>
