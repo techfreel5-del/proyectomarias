@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   ShoppingBag, Search, Phone, Mail, MapPin, X, Plus, Minus,
@@ -1018,6 +1019,7 @@ export default function PublicStorePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
+  const router = useRouter();
   const [profile, setProfile] = useState<SupplierProfile | null>(null);
   const [inventory, setInventory] = useState<InventoryProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -1027,6 +1029,7 @@ export default function PublicStorePage({
   const [filterCat, setFilterCat] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<InventoryProduct | null>(null);
   const productsRef = useRef<HTMLElement>(null);
+  const supplierIdRef = useRef('');
 
   useEffect(() => {
     const allSuppliers = getSuppliers();
@@ -1034,8 +1037,22 @@ export default function PublicStorePage({
     if (record) {
       setProfile(record.profile);
       setInventory(record.inventory);
+      supplierIdRef.current = record.id;
+      // Load persisted cart
+      try {
+        const saved = localStorage.getItem(`mc_cart_${record.id}`);
+        if (saved) setCart(JSON.parse(saved));
+      } catch { /* ignore */ }
     }
   }, [slug]);
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    if (!supplierIdRef.current) return;
+    try {
+      localStorage.setItem(`mc_cart_${supplierIdRef.current}`, JSON.stringify(cart));
+    } catch { /* ignore */ }
+  }, [cart]);
 
   // ⚠️ useCallback must be called unconditionally (before any early return)
   const addToCart = useCallback((product: InventoryProduct, variantId?: string, variantLabel?: string) => {
@@ -1144,7 +1161,7 @@ export default function PublicStorePage({
           profile={profile}
           t={t}
           cardStyle={cardStyle}
-          onViewDetail={setSelectedProduct}
+          onViewDetail={(p) => router.push(`/tienda/${slug}/producto/${p.id}`)}
           onAddToCart={(p) => addToCart(p)}
         />
       </main>
