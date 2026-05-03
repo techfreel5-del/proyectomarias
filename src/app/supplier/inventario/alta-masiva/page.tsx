@@ -10,11 +10,9 @@ import { useSupplier } from '@/lib/supplier-context';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface BoundingBox { x: number; y: number; w: number; h: number; }
-
 interface DetectedItem {
   id: string;
-  croppedImage: string;   // data URL from canvas crop
+  croppedImage: string;
   name: string;
   price: string;
   stock: string;
@@ -22,6 +20,8 @@ interface DetectedItem {
   colors: string[];
   category: string;
   selected: boolean;
+  tipo?: string;
+  confianza_recorte?: 'high' | 'low';
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -29,61 +29,7 @@ interface DetectedItem {
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Unitalla'];
 const CATEGORIES = ['Fashion', 'Appliances', 'Electronics', 'Sports', 'Coffee', 'Hogar', 'Otro'];
 
-// ── Canvas crop helper — efecto studio (runs in browser) ─────────────────────
-//
-// Genera un canvas cuadrado con fondo blanco/degradado suave y el producto
-// centrado con padding interior generoso, simulando una foto de estudio.
-
-function cropImageToDataURL(
-  imgEl: HTMLImageElement,
-  box: BoundingBox,
-): string {
-  const iw = imgEl.naturalWidth;
-  const ih = imgEl.naturalHeight;
-
-  // Región de recorte con padding del 5 % alrededor del artículo detectado
-  const pad = 0.05;
-  const srcX = Math.max(0, (box.x - pad) * iw);
-  const srcY = Math.max(0, (box.y - pad) * ih);
-  const srcW = Math.min(iw - srcX, (box.w + pad * 2) * iw);
-  const srcH = Math.min(ih - srcY, (box.h + pad * 2) * ih);
-
-  // Canvas cuadrado — tamaño basado en el lado más largo, entre 400 y 700 px
-  const side = Math.round(Math.min(700, Math.max(400, Math.max(srcW, srcH) * 1.15)));
-
-  const canvas = document.createElement('canvas');
-  canvas.width = side;
-  canvas.height = side;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
-
-  // Fondo: degradado radial blanco → gris muy claro (look studio/softbox)
-  const grad = ctx.createRadialGradient(side / 2, side / 2, 0, side / 2, side / 2, side * 0.75);
-  grad.addColorStop(0, '#FFFFFF');
-  grad.addColorStop(1, '#F0EFEE');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, side, side);
-
-  // Escalar el recorte para que quepa dentro del canvas con 10 % de margen interior
-  const innerPad = side * 0.10;
-  const availW = side - innerPad * 2;
-  const availH = side - innerPad * 2;
-  const scale = Math.min(availW / srcW, availH / srcH);
-  const dw = Math.round(srcW * scale);
-  const dh = Math.round(srcH * scale);
-  const dx = Math.round((side - dw) / 2);
-  const dy = Math.round((side - dh) / 2);
-
-  // Sombra sutil debajo del producto (simula superficie de estudio)
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.18)';
-  ctx.shadowBlur = Math.round(side * 0.06);
-  ctx.shadowOffsetY = Math.round(side * 0.025);
-  ctx.drawImage(imgEl, Math.round(srcX), Math.round(srcY), Math.round(srcW), Math.round(srcH), dx, dy, dw, dh);
-  ctx.restore();
-
-  return canvas.toDataURL('image/jpeg', 0.92);
-}
+// El procesamiento de imagen (crop, fondo blanco, edge-trimming) ocurre en el servidor.
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -91,7 +37,6 @@ export default function AltaMasivaPage() {
   const router = useRouter();
   const { addProduct, profile } = useSupplier();
   const fileRef = useRef<HTMLInputElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -183,32 +128,29 @@ export default function AltaMasivaPage() {
         return;
       }
 
-      const boxes: BoundingBox[] = data.boxes;
+      const products: Array<{
+        tipo: string;
+        confianza_recorte: 'high' | 'low';
+        croppedImage: string;
+        bbox: { x: number; y: number; w: number; h: number };
+      }> = data.products;
 
-      // Load image element to crop
-      const img = new Image();
-      img.onload = () => {
-        imgRef.current = img;
-        const detected: DetectedItem[] = boxes.map((box, i) => ({
-          id: `item-${Date.now()}-${i}`,
-          croppedImage: cropImageToDataURL(img, box),
-          name: `${baseModelName.trim()} ${i + 1}`,
-          price,
-          stock,
-          sizes: [...sizes],
-          colors: [...colors],
-          category,
-          selected: true,
-        }));
-        setItems(detected);
-        setStep(3);
-        setLoading(false);
-      };
-      img.onerror = () => {
-        setError('Error al procesar la imagen localmente.');
-        setLoading(false);
-      };
-      img.src = imagePreview;
+      const detected: DetectedItem[] = products.map((p, i) => ({
+        id: `item-${Date.now()}-${i}`,
+        croppedImage: p.croppedImage,
+        name: `${baseModelName.trim()} ${i + 1}`,
+        tipo: p.tipo,
+        confianza_recorte: p.confianza_recorte,
+        price,
+        stock,
+        sizes: [...sizes],
+        colors: [...colors],
+        category,
+        selected: true,
+      }));
+      setItems(detected);
+      setStep(3);
+      setLoading(false);
     } catch {
       setError('Error de conexión. Verifica tu internet e intenta de nuevo.');
       setLoading(false);
@@ -630,6 +572,18 @@ export default function AltaMasivaPage() {
                       <div className="w-full h-full flex items-center justify-center">
                         <Package className="h-10 w-10 text-[#D9D5CF]" />
                       </div>
+                    )}
+                    {/* Badge de tipo */}
+                    {item.tipo && (
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-[#0A0A0A] border border-[#EDEBE8]">
+                        {item.tipo === 'gorra' ? 'Gorra' : 'Artículo'}
+                      </span>
+                    )}
+                    {/* Badge de baja confianza */}
+                    {item.confianza_recorte === 'low' && (
+                      <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                        Verificar recorte
+                      </span>
                     )}
                     {/* Select toggle */}
                     <button
