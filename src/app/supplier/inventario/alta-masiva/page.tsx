@@ -38,21 +38,14 @@ function extractGridCell(
   img: HTMLImageElement,
   srcX: number, srcY: number, srcW: number, srcH: number,
 ): string {
-  const side = 600;
-  const pad  = side * 0.10;
-  const avail = side - pad * 2;
-  const scale = Math.min(avail / srcW, avail / srcH);
-  const dw = Math.round(srcW * scale);
-  const dh = Math.round(srcH * scale);
+  const w = Math.max(1, Math.round(srcW));
+  const h = Math.max(1, Math.round(srcH));
   const canvas = document.createElement('canvas');
-  canvas.width = side; canvas.height = side;
+  canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, side, side);
-  ctx.drawImage(img, srcX, srcY, srcW, srcH,
-    Math.round((side - dw) / 2), Math.round((side - dh) / 2), dw, dh);
-  return canvas.toDataURL('image/png');
+  ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 function extractPolygonCrop(img: HTMLImageElement, polygon: Pt[]): string {
@@ -64,34 +57,25 @@ function extractPolygonCrop(img: HTMLImageElement, polygon: Pt[]): string {
   const bh = maxY - minY;
   if (bw < 4 || bh < 4) return '';
 
-  const side = 600;
-  const pad  = side * 0.10;
-  const avail = side - pad * 2;
-  const scale = Math.min(avail / bw, avail / bh);
-  const dw = Math.round(bw * scale);
-  const dh = Math.round(bh * scale);
-  const ox = Math.round((side - dw) / 2);
-  const oy = Math.round((side - dh) / 2);
-
+  const w = Math.round(bw);
+  const h = Math.round(bh);
   const canvas = document.createElement('canvas');
-  canvas.width = side; canvas.height = side;
+  canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, side, side);
 
   ctx.save();
   ctx.beginPath();
   polygon.forEach((pt, i) => {
-    const px = ox + (pt.x - minX) * scale;
-    const py = oy + (pt.y - minY) * scale;
+    const px = pt.x - minX;
+    const py = pt.y - minY;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   });
   ctx.closePath();
   ctx.clip();
-  ctx.drawImage(img, minX, minY, bw, bh, ox, oy, dw, dh);
+  ctx.drawImage(img, minX, minY, bw, bh, 0, 0, w, h);
   ctx.restore();
-  return canvas.toDataURL('image/png');
+  return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 function canvasToImgCoords(
