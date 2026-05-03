@@ -11,6 +11,7 @@ import { gsap } from '@/lib/gsap';
 import { getSuppliers } from '@/lib/suppliers-store';
 import { getTheme } from '@/lib/store-themes';
 import { getEffectivePrice } from '@/lib/pricing-store';
+import { products as catalogProducts } from '@/lib/mock-data';
 import type { InventoryProduct, SupplierProfile } from '@/lib/supplier-context';
 
 interface CartItem {
@@ -60,12 +61,18 @@ export default function SupplierProductPage({
     const prod = record.inventory.find((p) => p.id === productId);
     if (!prod) return;
     setProduct(prod);
-    // Default variant selections
+    // Default variant selections: prefer inventory variants, fall back to catalog
     const vs = prod.variants ?? [];
-    const colors = [...new Set(vs.filter((v) => v.color).map((v) => v.color!))];
-    const sizes = [...new Set(vs.filter((v) => v.size).map((v) => v.size!))];
-    if (colors.length) setSelectedColor(colors[0]);
-    if (sizes.length) setSelectedSize(sizes[0]);
+    if (prod.hasVariants && vs.length > 0) {
+      const colors = [...new Set(vs.filter((v) => v.color).map((v) => v.color!))];
+      const sizes  = [...new Set(vs.filter((v) => v.size).map((v) => v.size!))];
+      if (colors.length) setSelectedColor(colors[0]);
+      if (sizes.length)  setSelectedSize(sizes[0]);
+    } else {
+      const catProd = catalogProducts.find((p) => p.id === productId);
+      if (catProd?.colors.length)             setSelectedColor(catProd.colors[0].name);
+      if (catProd?.sizes.filter(Boolean).length) setSelectedSize(catProd.sizes.filter(Boolean)[0]);
+    }
     // Load cart count from localStorage
     try {
       const saved = localStorage.getItem(`mc_cart_${record.id}`);
@@ -130,6 +137,12 @@ export default function SupplierProductPage({
     return cOk && sOk;
   });
   const availableStock = selectedVariant?.stock ?? product.stock;
+
+  // Fallback: colors & sizes from the catalog product when inventory has no variants
+  const catalogProduct  = !hasVariants ? catalogProducts.find((p) => p.id === product.id) : undefined;
+  const catColors = catalogProduct?.colors ?? [];
+  const catSizes  = (catalogProduct?.sizes ?? []).filter(Boolean);
+  const showVariants = hasVariants || catColors.length > 0 || catSizes.length > 0;
 
   return (
     <div style={{ backgroundColor: t.bgPage, color: t.textPrimary, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
@@ -311,32 +324,23 @@ export default function SupplierProductPage({
             )}
 
             {/* Variants */}
-            {hasVariants && (
+            {showVariants && (
               <div className="space-y-4">
-                {uniqueColors.length > 0 && (
+
+                {/* ── Inventory variants (color) ── */}
+                {hasVariants && uniqueColors.length > 0 && (
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.15em] mb-2.5" style={{ color: t.textSecondary }}>
-                      Color{selectedColor && (
-                        <span className="normal-case font-normal" style={{ color: t.textPrimary }}> — {selectedColor}</span>
-                      )}
+                      Color{selectedColor && <span className="normal-case font-normal" style={{ color: t.textPrimary }}> — {selectedColor}</span>}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {uniqueColors.map((color) => {
                         const inStock = variants.some((v) => v.color === color && v.stock > 0);
                         const active = selectedColor === color;
                         return (
-                          <button
-                            key={color}
-                            onClick={() => { setSelectedColor(active ? '' : color); setSelectedSize(''); }}
-                            disabled={!inStock}
+                          <button key={color} onClick={() => { setSelectedColor(active ? '' : color); setSelectedSize(''); }} disabled={!inStock}
                             className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all"
-                            style={{
-                              borderColor: active ? profile.brandColor : t.cardBorderColor,
-                              backgroundColor: active ? profile.brandColor : 'transparent',
-                              color: active ? '#fff' : inStock ? t.textPrimary : t.textSecondary,
-                              opacity: inStock ? 1 : 0.5,
-                            }}
-                          >
+                            style={{ borderColor: active ? profile.brandColor : t.cardBorderColor, backgroundColor: active ? profile.brandColor : 'transparent', color: active ? '#fff' : inStock ? t.textPrimary : t.textSecondary, opacity: inStock ? 1 : 0.5 }}>
                             {color}
                           </button>
                         );
@@ -345,30 +349,74 @@ export default function SupplierProductPage({
                   </div>
                 )}
 
-                {uniqueSizes.length > 0 && (
+                {/* ── Inventory variants (talla) ── */}
+                {hasVariants && uniqueSizes.length > 0 && (
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.15em] mb-2.5" style={{ color: t.textSecondary }}>
-                      Talla{selectedSize && (
-                        <span className="normal-case font-normal" style={{ color: t.textPrimary }}> — {selectedSize}</span>
-                      )}
+                      Talla{selectedSize && <span className="normal-case font-normal" style={{ color: t.textPrimary }}> — {selectedSize}</span>}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {uniqueSizes.map((size) => {
-                        const inStock = variants.some(
-                          (v) => v.size === size && (!selectedColor || v.color === selectedColor) && v.stock > 0,
+                        const inStock = variants.some((v) => v.size === size && (!selectedColor || v.color === selectedColor) && v.stock > 0);
+                        const active = selectedSize === size;
+                        return (
+                          <button key={size} onClick={() => setSelectedSize(active ? '' : size)} disabled={!inStock}
+                            className="h-9 min-w-[40px] px-3 text-sm font-medium rounded-lg border-2 transition-all"
+                            style={{ borderColor: active ? profile.brandColor : t.cardBorderColor, backgroundColor: active ? profile.brandColor : 'transparent', color: active ? '#fff' : inStock ? t.textPrimary : t.textSecondary, opacity: inStock ? 1 : 0.5 }}>
+                            {size}
+                          </button>
                         );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Catalog fallback: colors with hex swatches ── */}
+                {!hasVariants && catColors.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.15em] mb-2.5" style={{ color: t.textSecondary }}>
+                      Color{selectedColor && <span className="normal-case font-normal" style={{ color: t.textPrimary }}> — {selectedColor}</span>}
+                    </p>
+                    <div className="flex gap-2 flex-wrap">
+                      {catColors.map((c) => {
+                        const active = selectedColor === c.name;
+                        return (
+                          <button
+                            key={c.name}
+                            title={c.name}
+                            onClick={() => setSelectedColor(active ? '' : c.name)}
+                            className="w-8 h-8 rounded-full border-2 transition-all hover:scale-110"
+                            style={{
+                              backgroundColor: c.hex,
+                              borderColor: active ? t.textPrimary : 'transparent',
+                              boxShadow: active ? `0 0 0 2px ${t.bgPage}, 0 0 0 4px ${t.textPrimary}` : 'none',
+                              transform: active ? 'scale(1.15)' : undefined,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Catalog fallback: sizes ── */}
+                {!hasVariants && catSizes.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.15em] mb-2.5" style={{ color: t.textSecondary }}>
+                      Talla{selectedSize && <span className="normal-case font-normal" style={{ color: t.textPrimary }}> — {selectedSize}</span>}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {catSizes.map((size) => {
                         const active = selectedSize === size;
                         return (
                           <button
                             key={size}
                             onClick={() => setSelectedSize(active ? '' : size)}
-                            disabled={!inStock}
                             className="h-9 min-w-[40px] px-3 text-sm font-medium rounded-lg border-2 transition-all"
                             style={{
                               borderColor: active ? profile.brandColor : t.cardBorderColor,
                               backgroundColor: active ? profile.brandColor : 'transparent',
-                              color: active ? '#fff' : inStock ? t.textPrimary : t.textSecondary,
-                              opacity: inStock ? 1 : 0.5,
+                              color: active ? '#fff' : t.textPrimary,
                             }}
                           >
                             {size}
@@ -378,6 +426,7 @@ export default function SupplierProductPage({
                     </div>
                   </div>
                 )}
+
               </div>
             )}
 
