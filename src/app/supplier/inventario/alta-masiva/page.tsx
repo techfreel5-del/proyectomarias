@@ -10,7 +10,13 @@ import { useSupplier } from '@/lib/supplier-context';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface BoundingBox { x: number; y: number; w: number; h: number; }
+interface PolygonPoint { x: number; y: number; }
+
+interface ProductDetection {
+  bbox: { x: number; y: number; w: number; h: number };
+  polygon: PolygonPoint[];
+  croppedImage: string;
+}
 
 interface DetectedItem {
   id: string;
@@ -29,60 +35,71 @@ interface DetectedItem {
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Unitalla'];
 const CATEGORIES = ['Fashion', 'Appliances', 'Electronics', 'Sports', 'Coffee', 'Hogar', 'Otro'];
 
-// ── Canvas crop helper — efecto studio (runs in browser) ─────────────────────
+// ── Canvas helpers (runs in browser) ─────────────────────────────────────────
 //
-// Genera un canvas cuadrado con fondo blanco/degradado suave y el producto
-// centrado con padding interior generoso, simulando una foto de estudio.
+// bboxToPolygon — fallback cuando el servidor no devuelve polígono válido.
+// Cubre el crop completo (equivalente al comportamiento rectangular anterior).
+function bboxToPolygon(): PolygonPoint[] {
+  return [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+}
 
-function cropImageToDataURL(
-  imgEl: HTMLImageElement,
-  box: BoundingBox,
-): string {
-  const iw = imgEl.naturalWidth;
-  const ih = imgEl.naturalHeight;
+// compositeOnWhiteCanvas — coloca el crop del servidor en un canvas cuadrado
+// blanco puro con 10 % de padding. Aplica máscara de polígono para eliminar
+// el fondo y bordes de artículos vecinos.
+function compositeOnWhiteCanvas(
+  croppedDataUrl: string,
+  polygon: PolygonPoint[],
+): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.round(Math.min(800, Math.max(400, Math.max(img.naturalWidth, img.naturalHeight) * 1.2)));
 
-  // Región de recorte con padding del 5 % alrededor del artículo detectado
-  const pad = 0.05;
-  const srcX = Math.max(0, (box.x - pad) * iw);
-  const srcY = Math.max(0, (box.y - pad) * ih);
-  const srcW = Math.min(iw - srcX, (box.w + pad * 2) * iw);
-  const srcH = Math.min(ih - srcY, (box.h + pad * 2) * ih);
+      const canvas = document.createElement('canvas');
+      canvas.width = side;
+      canvas.height = side;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(croppedDataUrl); return; }
 
-  // Canvas cuadrado — tamaño basado en el lado más largo, entre 400 y 700 px
-  const side = Math.round(Math.min(700, Math.max(400, Math.max(srcW, srcH) * 1.15)));
+      // Fondo blanco puro
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, side, side);
 
-  const canvas = document.createElement('canvas');
-  canvas.width = side;
-  canvas.height = side;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
+      // Área de dibujo con 10 % de padding interior
+      const innerPad = side * 0.10;
+      const availW = side - innerPad * 2;
+      const availH = side - innerPad * 2;
+      const scale = Math.min(availW / img.naturalWidth, availH / img.naturalHeight);
+      const dw = Math.round(img.naturalWidth * scale);
+      const dh = Math.round(img.naturalHeight * scale);
+      const dx = Math.round((side - dw) / 2);
+      const dy = Math.round((side - dh) / 2);
 
-  // Fondo: degradado radial blanco → gris muy claro (look studio/softbox)
-  const grad = ctx.createRadialGradient(side / 2, side / 2, 0, side / 2, side / 2, side * 0.75);
-  grad.addColorStop(0, '#FFFFFF');
-  grad.addColorStop(1, '#F0EFEE');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, side, side);
+      // Aplicar contraste leve antes de dibujar (feature-check para Safari < 18)
+      if ('filter' in ctx) (ctx as CanvasRenderingContext2D).filter = 'contrast(1.08)';
 
-  // Escalar el recorte para que quepa dentro del canvas con 10 % de margen interior
-  const innerPad = side * 0.10;
-  const availW = side - innerPad * 2;
-  const availH = side - innerPad * 2;
-  const scale = Math.min(availW / srcW, availH / srcH);
-  const dw = Math.round(srcW * scale);
-  const dh = Math.round(srcH * scale);
-  const dx = Math.round((side - dw) / 2);
-  const dy = Math.round((side - dh) / 2);
+      // Clip por polígono de silueta
+      ctx.save();
+      ctx.beginPath();
+      polygon.forEach((pt, i) => {
+        const px = dx + pt.x * dw;
+        const py = dy + pt.y * dh;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.closePath();
+      ctx.clip();
 
-  // Sombra sutil debajo del producto (simula superficie de estudio)
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.18)';
-  ctx.shadowBlur = Math.round(side * 0.06);
-  ctx.shadowOffsetY = Math.round(side * 0.025);
-  ctx.drawImage(imgEl, Math.round(srcX), Math.round(srcY), Math.round(srcW), Math.round(srcH), dx, dy, dw, dh);
-  ctx.restore();
+      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, dx, dy, dw, dh);
+      ctx.restore();
 
-  return canvas.toDataURL('image/jpeg', 0.92);
+      if ('filter' in ctx) (ctx as CanvasRenderingContext2D).filter = 'none';
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(croppedDataUrl);
+    img.src = croppedDataUrl;
+  });
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -91,7 +108,6 @@ export default function AltaMasivaPage() {
   const router = useRouter();
   const { addProduct, profile } = useSupplier();
   const fileRef = useRef<HTMLInputElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -183,15 +199,15 @@ export default function AltaMasivaPage() {
         return;
       }
 
-      const boxes: BoundingBox[] = data.boxes;
+      const products: ProductDetection[] = data.products;
 
-      // Load image element to crop
-      const img = new Image();
-      img.onload = () => {
-        imgRef.current = img;
-        const detected: DetectedItem[] = boxes.map((box, i) => ({
+      const detected: DetectedItem[] = await Promise.all(
+        products.map(async (p, i) => ({
           id: `item-${Date.now()}-${i}`,
-          croppedImage: cropImageToDataURL(img, box),
+          croppedImage: await compositeOnWhiteCanvas(
+            p.croppedImage,
+            p.polygon.length >= 4 ? p.polygon : bboxToPolygon(),
+          ),
           name: `${baseModelName.trim()} ${i + 1}`,
           price,
           stock,
@@ -199,16 +215,11 @@ export default function AltaMasivaPage() {
           colors: [...colors],
           category,
           selected: true,
-        }));
-        setItems(detected);
-        setStep(3);
-        setLoading(false);
-      };
-      img.onerror = () => {
-        setError('Error al procesar la imagen localmente.');
-        setLoading(false);
-      };
-      img.src = imagePreview;
+        })),
+      );
+      setItems(detected);
+      setStep(3);
+      setLoading(false);
     } catch {
       setError('Error de conexión. Verifica tu internet e intenta de nuevo.');
       setLoading(false);
@@ -247,6 +258,16 @@ export default function AltaMasivaPage() {
       });
     });
     router.push('/supplier/inventario');
+  };
+
+  const handleDownloadAll = () => {
+    items.filter((it) => it.selected).forEach((it, i) => {
+      const a = document.createElement('a');
+      a.href = it.croppedImage;
+      const safeName = it.name.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s]/g, '').replace(/\s+/g, '_');
+      a.download = `${safeName}_${i + 1}.png`;
+      a.click();
+    });
   };
 
   const selectedCount = items.filter((it) => it.selected).length;
@@ -706,13 +727,20 @@ export default function AltaMasivaPage() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-2 flex-wrap">
             <button
               onClick={() => setStep(2)}
               className="flex items-center gap-2 px-5 py-3 border border-[#EDEBE8] rounded-xl text-sm font-semibold text-[#6B6359] hover:bg-[#F7F6F5] transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
               Cambiar foto
+            </button>
+            <button
+              onClick={handleDownloadAll}
+              disabled={selectedCount === 0}
+              className="flex items-center gap-2 px-5 py-3 border border-[#EDEBE8] rounded-xl text-sm font-semibold text-[#6B6359] hover:bg-[#F7F6F5] disabled:opacity-40 transition-colors"
+            >
+              Descargar fotos
             </button>
             <button
               onClick={handleConfirm}
