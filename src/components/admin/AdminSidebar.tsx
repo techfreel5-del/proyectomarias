@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart2, DollarSign, MapPin, Package, TrendingUp, Users } from 'lucide-react';
+import { BarChart2, DollarSign, MapPin, Package, TrendingUp, Users, ShoppingCart } from 'lucide-react';
 
 const sideNavItems = [
   { label: 'Resumen', href: '/admin', icon: BarChart2 },
   { label: 'Proveedores', href: '/admin/suppliers', icon: Users },
   { label: 'Motor de Precios', href: '/admin/pricing', icon: DollarSign },
+  { label: 'Checkout', href: '/admin/checkout', icon: ShoppingCart },
   { label: 'Zonas', href: '/admin/zones', icon: MapPin },
   { label: 'Pedidos', href: '/admin/orders', icon: Package },
   { label: 'Reportes', href: '/admin/reports', icon: TrendingUp },
