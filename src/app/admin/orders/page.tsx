@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import {
-  getOrders, updateOrderStatus, markSupplierPaid, unmarkSupplierPaid,
+  getOrders, fetchOrders, updateOrderStatus, markSupplierPaid, unmarkSupplierPaid,
   LocalOrder, OrderStatus, STATUS_LABELS, STATUS_COLORS, subscribeOrders,
 } from '@/lib/orders-store';
 import { Package, ChevronDown, RefreshCw, ChevronRight } from 'lucide-react';
@@ -29,6 +29,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     refresh();
+    fetchOrders();
     return subscribeOrders(refresh);
   }, [refresh]);
 

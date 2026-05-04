@@ -1,21 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import { DeliveryZone } from '@/lib/mock-data';
 import { Users, Clock } from 'lucide-react';
 
+interface Zone { id: string; name: string; estimatedHours: number; active: boolean; repartidores: number; }
+
 interface ZoneConfiguratorProps {
-  zones: DeliveryZone[];
+  zones: Zone[];
 }
 
 export function ZoneConfigurator({ zones: initialZones }: ZoneConfiguratorProps) {
   const [zones, setZones] = useState(initialZones);
 
-  const toggleZone = (id: string) =>
-    setZones((prev) => prev.map((z) => z.id === id ? { ...z, active: !z.active } : z));
+  const patchZone = (id: string, data: Record<string, unknown>) =>
+    fetch(`/api/admin/zones/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+
+  const toggleZone = (id: string) => {
+    setZones((prev) => prev.map((z) => {
+      if (z.id !== id) return z;
+      patchZone(id, { active: !z.active });
+      return { ...z, active: !z.active };
+    }));
+  };
 
   const updateHours = (id: string, hours: number) =>
     setZones((prev) => prev.map((z) => z.id === id ? { ...z, estimatedHours: hours } : z));
+
+  const saveHours = (id: string, hours: number) =>
+    patchZone(id, { estimatedHours: hours });
 
   return (
     <div>
@@ -64,6 +76,7 @@ export function ZoneConfigurator({ zones: initialZones }: ZoneConfiguratorProps)
                   max={48}
                   value={zone.estimatedHours}
                   onChange={(e) => updateHours(zone.id, Number(e.target.value))}
+                  onPointerUp={(e) => saveHours(zone.id, Number((e.target as HTMLInputElement).value))}
                   className="w-full h-1 appearance-none rounded-full bg-[#EDEBE8] cursor-pointer"
                   style={{ accentColor: '#00C9B1' }}
                   disabled={!zone.active}

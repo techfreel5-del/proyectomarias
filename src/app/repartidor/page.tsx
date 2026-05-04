@@ -9,7 +9,7 @@ import {
 import { Logo } from '@/components/brand/Logo';
 import { useAuth } from '@/lib/auth-context';
 import {
-  getOrders, updateOrder, subscribeOrders,
+  getOrders, fetchOrders, updateOrder, subscribeOrders,
   LocalOrder, STATUS_LABELS,
 } from '@/lib/orders-store';
 import { RouteMap } from '@/components/transporter/RouteMap';
@@ -32,6 +32,7 @@ export default function RepartidorPage() {
   useEffect(() => {
     if (!user) { router.replace('/login'); return; }
     refresh();
+    fetchOrders();
     return subscribeOrders(refresh);
   }, [user, router, refresh]);
 

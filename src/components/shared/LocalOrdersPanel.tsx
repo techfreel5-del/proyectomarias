@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getOrders, updateOrderStatus, LocalOrder, OrderStatus, STATUS_LABELS, STATUS_COLORS, subscribeOrders } from '@/lib/orders-store';
+import { getOrders, fetchOrders, updateOrderStatus, LocalOrder, OrderStatus, STATUS_LABELS, STATUS_COLORS, subscribeOrders } from '@/lib/orders-store';
 import { Package, ChevronDown } from 'lucide-react';
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
@@ -35,6 +35,7 @@ export function LocalOrdersPanel({ title = 'Pedidos recientes', filterStatus, al
 
   useEffect(() => {
     refresh();
+    fetchOrders();
     return subscribeOrders(refresh);
   }, [refresh]);
 

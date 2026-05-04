@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Package, ChevronDown, RefreshCw, CheckCircle2 } from 'lucide-react';
 import {
-  getOrders, updateSupplierPackage, subscribeOrders,
+  getOrders, fetchOrders, updateSupplierPackage, subscribeOrders,
   LocalOrder, OrderStatus, STATUS_LABELS, STATUS_COLORS,
 } from '@/lib/orders-store';
 import { useAuth } from '@/lib/auth-context';
@@ -36,6 +36,7 @@ export default function SupplierPedidosPage() {
 
   useEffect(() => {
     refresh();
+    fetchOrders();
     return subscribeOrders(refresh);
   }, [refresh]);
 

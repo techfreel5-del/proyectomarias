@@ -9,7 +9,7 @@ import {
 import { useSupplier } from '@/lib/supplier-context';
 import { useAuth } from '@/lib/auth-context';
 import {
-  getOrders, subscribeOrders, LocalOrder,
+  getOrders, fetchOrders, subscribeOrders, LocalOrder,
   STATUS_LABELS, STATUS_COLORS,
 } from '@/lib/orders-store';
 import { getSupplierWholesaleRate } from '@/lib/pricing-store';
@@ -24,6 +24,7 @@ export default function SupplierDashboard() {
   const refresh = useCallback(() => setOrders(getOrders()), []);
   useEffect(() => {
     refresh();
+    fetchOrders();
     return subscribeOrders(refresh);
   }, [refresh]);
 

@@ -3,11 +3,13 @@ import { PriceEngine } from '@/components/admin/PriceEngine';
 import { ZoneConfigurator } from '@/components/admin/ZoneConfigurator';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { LocalOrdersPanel } from '@/components/shared/LocalOrdersPanel';
-import { deliveryZones } from '@/lib/mock-data';
+import { prisma } from '@/lib/prisma';
 
 export const metadata = { title: 'Admin Panel' };
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const zones = await prisma.deliveryZone.findMany({ orderBy: { id: 'asc' } }).catch(() => []);
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex">
       <AdminSidebar />
@@ -26,7 +28,7 @@ export default function AdminPage() {
         <div className="grid lg:grid-cols-2 gap-6">
           <PriceEngine />
           <div className="bg-white border border-[#EDEBE8] rounded-xl p-5">
-            <ZoneConfigurator zones={deliveryZones} />
+            <ZoneConfigurator zones={zones} />
           </div>
         </div>
 

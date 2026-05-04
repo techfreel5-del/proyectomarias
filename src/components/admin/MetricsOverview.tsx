@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Package, Truck, DollarSign, Clock } from 'lucide-react';
-import { getOrders, subscribeOrders } from '@/lib/orders-store';
+import { getOrders, fetchOrders, subscribeOrders } from '@/lib/orders-store';
 
 export function MetricsOverview() {
   const [totalOrders, setTotalOrders] = useState(0);
@@ -23,6 +23,7 @@ export function MetricsOverview() {
 
   useEffect(() => {
     recalc();
+    fetchOrders();
     return subscribeOrders(recalc);
   }, [recalc]);
 

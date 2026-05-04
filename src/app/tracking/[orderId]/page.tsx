@@ -13,7 +13,13 @@ export default function TrackingPage() {
   const [localOrder, setLocalOrder] = useState<LocalOrder | null | undefined>(undefined);
 
   useEffect(() => {
-    setLocalOrder(getOrder(orderId));
+    const cached = getOrder(orderId);
+    if (cached) { setLocalOrder(cached); return; }
+    // Not in cache — try API (orders from BD or another device)
+    fetch(`/api/orders/${orderId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setLocalOrder(data ?? null))
+      .catch(() => setLocalOrder(null));
   }, [orderId]);
 
   // Still loading
