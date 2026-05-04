@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  proveedor
+  transportista
+  repartidor
+  cliente
+}
+
+enum OrderStatus {
+  pending
+  processing
+  at_hub
+  shipped
+  delivered
+  returned
+}
+
+enum PackageStatus {
+  pending
+  preparing
+  ready
+  picked_up
+}
+
+enum SupplierPaymentStatus {
+  pending
+  paid
+}
+
+// ─── Usuario ──────────────────────────────────────────────────
+
+model User {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  password   String
+  name       String
+  role       UserRole
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  orders     Order[]
+  cart       Cart?
+}
+
+// ─── Proveedor ────────────────────────────────────────────────
+
+model Supplier {
+  id          String           @id
+  email       String           @unique
+  displayName String
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  users       User[]
+  profile     SupplierProfile?
+  products    Product[]
+  packages    OrderPackage[]
+  payments    SupplierPayment[]
+}
+
+model SupplierProfile {
+  id               String   @id @default(cuid())
+  supplierId       String   @unique
+  supplier         Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  storeName        String
+  slug             String   @unique
+  logo             String?
+  brandColor       String   @default("#1E3A5F")
+  accentColor      String   @default("#E8A020")
+  description      String   @default("")
+  phone            String   @default("")
+  address          String   @default("")
+  bannerUrl        String   @default("")
+  showPoweredBy    Boolean  @default(true)
+  storeTheme       String   @default("moderno")
+  heroCtaText      String   @default("Ver colección")
+  announcementText String   @default("")
+  announcementBg   String   @default("")
+  cardStyle        String   @default("rounded")
+  instagramUrl     String   @default("")
+  facebookUrl      String   @default("")
+  tiktokUrl        String   @default("")
+  whatsappNumber   String   @default("")
+  shippingMethods  Json     @default("[]")
+  bankInfo         Json     @default("{}")
+  wholesaleRate    Decimal  @default(70) @db.Decimal(5, 2)
+}
+
+// ─── Producto ─────────────────────────────────────────────────
+
+model Product {
+  id                String      @id
+  slug              String      @unique
+  name              String
+  category          String
+  subcategory       String
+  price             Decimal     @db.Decimal(10, 2)
+  originalPrice     Decimal?    @db.Decimal(10, 2)
+  images            String[]
+  colors            Json        @default("[]")
+  sizes             String[]
+  description       String
+  badge             String?
+  inStock           Boolean     @default(true)
+  active            Boolean     @default(true)
+  pendingApproval   Boolean     @default(false)
+  stock             Int         @default(0)
+  lowStockThreshold Int         @default(10)
+  sku               String?
+  videoUrl          String?
+  supplierId        String
+  supplier          Supplier    @relation(fields: [supplierId], references: [id])
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+}
+
+// ─── Carrito ──────────────────────────────────────────────────
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?    @unique
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String?    @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  qty       Int
+  size      String   @default("")
+  color     String   @default("")
+  key       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, key])
+}
+
+// ─── Orden ────────────────────────────────────────────────────
+
+model Order {
+  id                     String            @id
+  status                 OrderStatus       @default(pending)
+  customerId             String?
+  customer               User?             @relation(fields: [customerId], references: [id])
+  customerName           String
+  customerEmail          String?
+  customerPhone          String
+  customerAddress        String
+  customerZone           String
+  total                  Decimal           @db.Decimal(10, 2)
+  paymentMethod          String
+  isAdvance              Boolean           @default(false)
+  amountPaid             Decimal           @default(0) @db.Decimal(10, 2)
+  supplierSlug           String?
+  shippingMethod         String?
+  shippingCost           Decimal?          @db.Decimal(10, 2)
+  deliveryType           String?
+  paymentCollectedMethod String?
+  items                  OrderItem[]
+  packages               OrderPackage[]
+  supplierPayments       SupplierPayment[]
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id])
+  name         String
+  price        Decimal  @db.Decimal(10, 2)
+  qty          Int
+  image        String   @default("")
+  size         String   @default("")
+  color        String   @default("")
+  supplierId   String?
+  supplierName String?
+}
+
+model OrderPackage {
+  id            String        @id @default(cuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplierId    String
+  supplier      Supplier      @relation(fields: [supplierId], references: [id])
+  supplierName  String
+  supplierEmail String
+  status        PackageStatus @default(pending)
+  itemIds       String[]
+}
+
+model SupplierPayment {
+  id         String                @id @default(cuid())
+  orderId    String
+  order      Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier              @relation(fields: [supplierId], references: [id])
+  status     SupplierPaymentStatus @default(pending)
+  paidAt     DateTime?
+  createdAt  DateTime              @default(now())
+
+  @@unique([orderId, supplierId])
+}
+
+// ─── Zonas de entrega ─────────────────────────────────────────
+
+model DeliveryZone {
+  id             String  @id
+  name           String
+  estimatedHours Int
+  active         Boolean @default(true)
+  repartidores   Int     @default(0)
+}
+
+// ─── Config global de tienda ──────────────────────────────────
+
+model StoreConfig {
+  id              String   @id @default("singleton")
+  shippingMethods Json     @default("[]")
+  bankInfo        Json     @default("{}")
+  paymentMethods  Json     @default("[]")
+  whatsappNumber  String   @default("")
+  updatedAt       DateTime @updatedAt
+}
