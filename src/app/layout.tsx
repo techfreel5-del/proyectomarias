@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Playfair_Display, Inter } from 'next/font/google';
 import './globals.css';
+import { SessionProvider } from 'next-auth/react';
 import { SmoothScrollProvider } from '@/components/layout/SmoothScrollProvider';
 import { CartProvider } from '@/lib/cart-context';
 import { AuthProvider } from '@/lib/auth-context';
@@ -37,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${playfair.variable} ${inter.variable} antialiased`}>
       <body className="min-h-screen bg-[#FAFAFA] text-[#0A0A0A]">
+        <SessionProvider>
         <AuthProvider>
           <CartProvider>
             <SmoothScrollProvider>
@@ -46,6 +48,7 @@ export default function RootLayout({
             </SmoothScrollProvider>
           </CartProvider>
         </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );

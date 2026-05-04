@@ -1,6 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export type UserRole = 'admin' | 'proveedor' | 'transportista' | 'repartidor' | 'cliente';
 
@@ -24,28 +26,26 @@ const AuthContext = createContext<AuthContextValue>({
   logout: () => {},
 });
 
-const STORAGE_KEY = 'mariasclub_user';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const { data: session } = useSession();
+  const router = useRouter();
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setUser(JSON.parse(stored));
-    } catch {
-      // ignore
-    }
-  }, []);
+  const user: AuthUser | null = session?.user
+    ? {
+        email: session.user.email ?? '',
+        role: (session.user.role as UserRole) ?? 'cliente',
+        name: session.user.name ?? '',
+        redirect: (session.user.redirect as string) ?? '/',
+        supplierId: session.user.supplierId as string | undefined,
+      }
+    : null;
 
-  const login = (u: AuthUser) => {
-    setUser(u);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-  };
+  // login() no se usa directamente — el login real ocurre en login/page.tsx via signIn()
+  const login = (_user: AuthUser) => {};
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
+  const logout = async () => {
+    await signOut({ redirect: false });
+    router.push('/');
   };
 
   return (

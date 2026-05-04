@@ -7,21 +7,10 @@ import { useGSAP } from '@gsap/react';
 import { gsap } from '@/lib/gsap';
 import { Eye, EyeOff } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
-import { useAuth, type UserRole } from '@/lib/auth-context';
-import { findSupplierByEmail } from '@/lib/suppliers-store';
-
-const MOCK_USERS: { email: string; password: string; role: UserRole; name: string; redirect: string; supplierId?: string }[] = [
-  { email: 'admin@mariasclub.com',          password: 'admin123',          role: 'admin',         name: 'Administrador',          redirect: '/admin' },
-  { email: 'proveedor@mariasclub.com',      password: 'proveedor123',      role: 'proveedor',     name: 'Moda & Hogar Zamora',    redirect: '/supplier', supplierId: 'fashion-hogar-zamora' },
-  { email: 'proveedor2@mariasclub.com',     password: 'proveedor2123',     role: 'proveedor',     name: 'Deportes & Tech Zamora', redirect: '/supplier', supplierId: 'deportes-tech-zamora' },
-  { email: 'transportista@mariasclub.com',  password: 'transportista123',  role: 'transportista', name: 'Transportista',          redirect: '/transporter' },
-  { email: 'repartidor@mariasclub.com',     password: 'repartidor123',     role: 'repartidor',    name: 'Repartidor',             redirect: '/repartidor' },
-  { email: 'cliente@mariasclub.com',        password: 'cliente123',        role: 'cliente',       name: 'Cliente',                redirect: '/account' },
-];
+import { signIn, getSession } from 'next-auth/react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -30,38 +19,23 @@ export default function LoginPage() {
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
 
-    // Check static mock users first (admin, transportista, repartidor, cliente)
-    const found = MOCK_USERS.find(u => u.email === email && u.password === password);
-    if (found) {
-      setError('');
-      login({ email: found.email, role: found.role, name: found.name, redirect: found.redirect, supplierId: found.supplierId });
-      router.push(found.redirect);
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError('Correo o contraseña incorrectos.');
       return;
     }
 
-    // Check suppliers store (covers newly created suppliers + existing ones)
-    const supplierRecord = findSupplierByEmail(email);
-    if (supplierRecord && supplierRecord.password === password) {
-      if (!supplierRecord.active) {
-        setError('Esta cuenta de proveedor está desactivada. Contacta al administrador.');
-        return;
-      }
-      setError('');
-      login({
-        email: supplierRecord.email,
-        role: 'proveedor' as UserRole,
-        name: supplierRecord.displayName,
-        redirect: '/supplier',
-        supplierId: supplierRecord.id,
-      });
-      router.push('/supplier');
-      return;
-    }
-
-    setError('Correo o contraseña incorrectos.');
+    const session = await getSession();
+    router.push((session?.user?.redirect as string) ?? '/');
   };
 
   /* ── Mount animation ──────────────────────────────────────── */
