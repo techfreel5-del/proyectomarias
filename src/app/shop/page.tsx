@@ -1,9 +1,10 @@
 import { CatalogGrid } from '@/components/customer/CatalogGrid';
-import { products } from '@/lib/mock-data';
+import { getAllProducts } from '@/lib/products-db';
 
 export const metadata = { title: 'Tienda · MARIASCLUB™' };
 
-export default function ShopPage() {
+export default async function ShopPage() {
+  const products = await getAllProducts();
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

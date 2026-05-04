@@ -5,10 +5,10 @@ import { TrendReport } from '@/components/customer/TrendReport';
 import { TrackingPreview } from '@/components/customer/TrackingPreview';
 import { NewsletterBanner } from '@/components/customer/NewsletterBanner';
 import { CategorySplit } from '@/components/customer/CategorySplit';
-import { getFeaturedProducts } from '@/lib/mock-data';
+import { getFeaturedProductsDB } from '@/lib/products-db';
 
-export default function HomePage() {
-  const featuredProducts = getFeaturedProducts();
+export default async function HomePage() {
+  const featuredProducts = await getFeaturedProductsDB();
 
   return (
     <>

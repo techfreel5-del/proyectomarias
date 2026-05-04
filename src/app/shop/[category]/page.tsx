@@ -1,5 +1,6 @@
 import { CatalogGrid } from '@/components/customer/CatalogGrid';
-import { products, Category, categoryLabels } from '@/lib/mock-data';
+import { Category, categoryLabels } from '@/lib/mock-data';
+import { getProductsByCategory } from '@/lib/products-db';
 import { notFound } from 'next/navigation';
 
 const validCategories: Category[] = ['fashion', 'home-kitchen', 'sports-fitness', 'electronics'];
@@ -26,7 +27,7 @@ export default async function CategoryPage({ params }: Props) {
   }
 
   const cat = category as Category;
-  const filtered = products.filter((p) => p.category === cat);
+  const filtered = await getProductsByCategory(cat);
   const label = categoryLabels[cat];
 
   return (
