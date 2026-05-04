@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { authConfig } from "@/auth.config";
 import type { UserRole } from "@/lib/auth-context";
 
 const ROLE_REDIRECTS: Record<string, string> = {
@@ -13,6 +14,7 @@ const ROLE_REDIRECTS: Record<string, string> = {
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -29,7 +31,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!user) return null;
 
-        // Verificar proveedor activo
         if (user.role === "proveedor" && user.supplier && !user.supplier.active) {
           return null;
         }
@@ -51,25 +52,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.role = (user as { role: UserRole }).role;
-        token.supplierId = (user as { supplierId?: string }).supplierId;
-        token.redirect = (user as { redirect: string }).redirect;
-      }
-      return token;
-    },
-    session({ session, token }) {
-      session.user.role = token.role as UserRole;
-      session.user.supplierId = token.supplierId as string | undefined;
-      session.user.redirect = token.redirect as string;
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  session: { strategy: "jwt" },
 });
