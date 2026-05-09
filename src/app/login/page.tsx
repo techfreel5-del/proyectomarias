@@ -50,35 +50,39 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email: regEmail, password: regPassword }),
-    });
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: regEmail, password: regPassword }),
+      });
 
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error ?? 'No se pudo crear la cuenta.');
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(data.error ?? 'No se pudo crear la cuenta.');
+        setLoading(false);
+        return;
+      }
+
+      // Auto-login tras registro
+      const result = await signIn('credentials', {
+        email: regEmail,
+        password: regPassword,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError('Cuenta creada. Inicia sesión manualmente.');
+        setTab('login');
+      } else {
+        router.push('/account');
+      }
+    } catch {
+      setError('Error de conexión. Intenta de nuevo.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // Auto-login tras registro
-    const result = await signIn('credentials', {
-      email: regEmail,
-      password: regPassword,
-      redirect: false,
-    });
-
-    setLoading(false);
-
-    if (result?.error) {
-      setError('Cuenta creada, pero no se pudo iniciar sesión. Intenta manualmente.');
-      setTab('login');
-      return;
-    }
-
-    router.push('/account');
   };
 
   /* ── Mount animation ──────────────────────────────────────── */
