@@ -4,10 +4,12 @@ import { Pool } from "pg";
 
 /** pg.Pool no entiende los parámetros prisma-only; hay que quitarlos */
 function cleanConnectionString(url: string) {
-  const u = new URL(url);
-  u.searchParams.delete("pgbouncer");
-  u.searchParams.delete("connection_limit");
-  return u.toString();
+  const [base, query] = url.split("?");
+  if (!query) return url;
+  const params = query
+    .split("&")
+    .filter((p) => !p.startsWith("pgbouncer=") && !p.startsWith("connection_limit="));
+  return params.length > 0 ? `${base}?${params.join("&")}` : base;
 }
 
 function createPrismaClient() {
