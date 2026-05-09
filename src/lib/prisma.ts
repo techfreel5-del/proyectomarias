@@ -2,19 +2,11 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-/** pg.Pool no entiende los parámetros prisma-only; hay que quitarlos */
-function cleanConnectionString(url: string) {
-  const [base, query] = url.split("?");
-  if (!query) return url;
-  const params = query
-    .split("&")
-    .filter((p) => !p.startsWith("pgbouncer=") && !p.startsWith("connection_limit="));
-  return params.length > 0 ? `${base}?${params.join("&")}` : base;
-}
-
 function createPrismaClient() {
+  // DIRECT_URL (puerto 5432) evita pgbouncer — más confiable en serverless con Supabase
+  const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL!;
   const pool = new Pool({
-    connectionString: cleanConnectionString(process.env.DATABASE_URL!),
+    connectionString,
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 10_000,
     max: 1,
