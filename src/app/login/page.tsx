@@ -15,19 +15,26 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     const result = await signIn('credentials', {
       email,
       password,
       redirect: false,
     });
+
+    setLoading(false);
 
     if (result?.error) {
       setError('Correo o contraseña incorrectos.');
@@ -36,6 +43,42 @@ export default function LoginPage() {
 
     const session = await getSession();
     router.push((session?.user?.redirect as string) ?? '/');
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email: regEmail, password: regPassword }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? 'No se pudo crear la cuenta.');
+      setLoading(false);
+      return;
+    }
+
+    // Auto-login tras registro
+    const result = await signIn('credentials', {
+      email: regEmail,
+      password: regPassword,
+      redirect: false,
+    });
+
+    setLoading(false);
+
+    if (result?.error) {
+      setError('Cuenta creada, pero no se pudo iniciar sesión. Intenta manualmente.');
+      setTab('login');
+      return;
+    }
+
+    router.push('/account');
   };
 
   /* ── Mount animation ──────────────────────────────────────── */
@@ -48,6 +91,7 @@ export default function LoginPage() {
   /* ── Tab switch animation ─────────────────────────────────── */
   const switchTab = (next: 'login' | 'register') => {
     if (next === tab) return;
+    setError('');
     const pref = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!pref) {
       gsap.fromTo(formRef.current,
@@ -135,13 +179,14 @@ export default function LoginPage() {
                 )}
                 <button
                   type="submit"
-                  className="w-full h-12 bg-[#222222] text-white text-[11px] font-bold tracking-[0.1em] uppercase hover:bg-black transition-colors mt-2"
+                  disabled={loading}
+                  className="w-full h-12 bg-[#222222] text-white text-[11px] font-bold tracking-[0.1em] uppercase hover:bg-black transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Iniciar Sesión
+                  {loading ? 'Iniciando...' : 'Iniciar Sesión'}
                 </button>
               </form>
             ) : (
-              <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+              <form className="space-y-4" onSubmit={handleRegister}>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-[#555555] mb-1.5">
                     Nombre completo
@@ -149,6 +194,9 @@ export default function LoginPage() {
                   <input
                     type="text"
                     placeholder="María García"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
                     className="w-full h-11 border border-[#E0E0E0] px-4 text-sm text-[#222222] placeholder-[#B8B2A8] bg-white focus:outline-none focus:border-[#222222] transition-colors"
                   />
                 </div>
@@ -159,6 +207,9 @@ export default function LoginPage() {
                   <input
                     type="email"
                     placeholder="tucorreo@ejemplo.com"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    required
                     className="w-full h-11 border border-[#E0E0E0] px-4 text-sm text-[#222222] placeholder-[#B8B2A8] bg-white focus:outline-none focus:border-[#222222] transition-colors"
                   />
                 </div>
@@ -170,6 +221,10 @@ export default function LoginPage() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Mín. 8 caracteres"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      required
+                      minLength={8}
                       className="w-full h-11 border border-[#E0E0E0] px-4 pr-11 text-sm text-[#222222] placeholder-[#B8B2A8] bg-white focus:outline-none focus:border-[#222222] transition-colors"
                     />
                     <button
@@ -181,11 +236,15 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </div>
+                {error && (
+                  <p className="text-xs text-[#C0392B] font-medium">{error}</p>
+                )}
                 <button
                   type="submit"
-                  className="w-full h-12 bg-[#222222] text-white text-[11px] font-bold tracking-[0.1em] uppercase hover:bg-black transition-colors mt-2"
+                  disabled={loading}
+                  className="w-full h-12 bg-[#222222] text-white text-[11px] font-bold tracking-[0.1em] uppercase hover:bg-black transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Crear Cuenta
+                  {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
                 </button>
                 <p className="text-[10px] text-[#828282] text-center leading-relaxed">
                   Al crear una cuenta aceptas nuestros{' '}
