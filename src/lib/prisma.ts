@@ -2,9 +2,17 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
+/** pg.Pool no entiende los parámetros prisma-only; hay que quitarlos */
+function cleanConnectionString(url: string) {
+  const u = new URL(url);
+  u.searchParams.delete("pgbouncer");
+  u.searchParams.delete("connection_limit");
+  return u.toString();
+}
+
 function createPrismaClient() {
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL!,
+    connectionString: cleanConnectionString(process.env.DATABASE_URL!),
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 10_000,
     max: 1,

@@ -12,15 +12,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "La contraseña debe tener al menos 8 caracteres." }, { status: 400 });
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return NextResponse.json({ error: "Ya existe una cuenta con ese correo." }, { status: 409 });
+  try {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return NextResponse.json({ error: "Ya existe una cuenta con ese correo." }, { status: 409 });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+    await prisma.user.create({
+      data: { name, email, password: hash, role: "cliente" },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[register]", err);
+    const msg = err instanceof Error ? err.message : "Error desconocido";
+    return NextResponse.json({ error: `Error de base de datos: ${msg}` }, { status: 500 });
   }
-
-  const hash = await bcrypt.hash(password, 12);
-  await prisma.user.create({
-    data: { name, email, password: hash, role: "cliente" },
-  });
-
-  return NextResponse.json({ ok: true });
 }
