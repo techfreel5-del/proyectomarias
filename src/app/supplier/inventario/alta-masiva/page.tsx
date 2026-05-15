@@ -385,8 +385,12 @@ export default function AltaMasivaPage() {
 
   // ── Confirm alta ─────────────────────────────────────────────────────────
 
-  const handleConfirm = () => {
-    items.filter(it => it.selected).forEach((it) => {
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    const selected = items.filter(it => it.selected);
+    await Promise.all(selected.map((it) =>
       addProduct({
         sku: `${baseModelName.substring(0, 3).toUpperCase()}-${Date.now().toString(36).toUpperCase().slice(-4)}`,
         name: it.name,
@@ -397,8 +401,8 @@ export default function AltaMasivaPage() {
         description: [[it.sizes.join(' / ') || 'Talla única', it.colors.join(', ')].filter(Boolean).join(' · ')].join(''),
         lowStockThreshold: 5,
         active: true,
-      });
-    });
+      })
+    ));
     router.push('/supplier/inventario');
   };
 
@@ -853,11 +857,12 @@ export default function AltaMasivaPage() {
               className="flex items-center gap-2 px-5 py-3 border border-[#EDEBE8] rounded-xl text-sm font-semibold text-[#6B6359] hover:bg-[#F7F6F5] transition-colors">
               <ChevronLeft className="h-4 w-4" />Cambiar foto
             </button>
-            <button onClick={handleConfirm} disabled={selectedCount === 0}
+            <button onClick={handleConfirm} disabled={selectedCount === 0 || confirming}
               className="flex-1 py-3 rounded-xl text-white font-semibold text-sm disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
               style={{ backgroundColor: profile.brandColor }}>
-              <Check className="h-4 w-4" />
-              Dar de alta {selectedCount} artículo{selectedCount !== 1 ? 's' : ''}
+              {confirming
+                ? <><Loader2 className="h-4 w-4 animate-spin" />Guardando…</>
+                : <><Check className="h-4 w-4" />Dar de alta {selectedCount} artículo{selectedCount !== 1 ? 's' : ''}</>}
             </button>
           </div>
         </div>
