@@ -1032,18 +1032,47 @@ export default function PublicStorePage({
   const supplierIdRef = useRef('');
 
   useEffect(() => {
-    const allSuppliers = getSuppliers();
-    const record = allSuppliers.find((s) => s.profile.slug === slug);
-    if (record) {
-      setProfile(record.profile);
-      setInventory(record.inventory);
-      supplierIdRef.current = record.id;
-      // Load persisted cart
-      try {
-        const saved = localStorage.getItem(`mc_cart_${record.id}`);
-        if (saved) setCart(JSON.parse(saved));
-      } catch { /* ignore */ }
-    }
+    fetch(`/api/tienda/${slug}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          setProfile(data.profile);
+          setInventory(data.inventory);
+          supplierIdRef.current = data.id;
+          // Load persisted cart
+          try {
+            const saved = localStorage.getItem(`mc_cart_${data.id}`);
+            if (saved) setCart(JSON.parse(saved));
+          } catch { /* ignore */ }
+        } else {
+          // Fallback a localStorage para tiendas antiguas
+          const allSuppliers = getSuppliers();
+          const record = allSuppliers.find((s) => s.profile.slug === slug);
+          if (record) {
+            setProfile(record.profile);
+            setInventory(record.inventory);
+            supplierIdRef.current = record.id;
+            try {
+              const saved = localStorage.getItem(`mc_cart_${record.id}`);
+              if (saved) setCart(JSON.parse(saved));
+            } catch { /* ignore */ }
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback a localStorage
+        const allSuppliers = getSuppliers();
+        const record = allSuppliers.find((s) => s.profile.slug === slug);
+        if (record) {
+          setProfile(record.profile);
+          setInventory(record.inventory);
+          supplierIdRef.current = record.id;
+          try {
+            const saved = localStorage.getItem(`mc_cart_${record.id}`);
+            if (saved) setCart(JSON.parse(saved));
+          } catch { /* ignore */ }
+        }
+      });
   }, [slug]);
 
   // Persist cart to localStorage whenever it changes

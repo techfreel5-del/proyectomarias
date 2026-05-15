@@ -3,14 +3,12 @@ import { Category, categoryLabels } from '@/lib/mock-data';
 import { getProductsByCategory } from '@/lib/products-db';
 import { notFound } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 const validCategories: Category[] = ['fashion', 'home-kitchen', 'sports-fitness', 'electronics'];
 
 interface Props {
   params: Promise<{ category: string }>;
-}
-
-export async function generateStaticParams() {
-  return validCategories.map((cat) => ({ category: cat }));
 }
 
 export async function generateMetadata({ params }: Props) {

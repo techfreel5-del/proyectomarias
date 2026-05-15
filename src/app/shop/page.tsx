@@ -1,6 +1,7 @@
 import { CatalogGrid } from '@/components/customer/CatalogGrid';
 import { getAllProducts } from '@/lib/products-db';
 
+export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Tienda · MARIASCLUB™' };
 
 export default async function ShopPage() {
