@@ -244,3 +244,17 @@ model StoreConfig {
   whatsappNumber  String   @default("")
   updatedAt       DateTime @updatedAt
 }
+
+// ─── Overrides de precio (admin) ──────────────────────────────
+
+model ProductPriceOverride {
+  productId  String   @id
+  adminPrice Decimal  @db.Decimal(10, 2)
+  updatedAt  DateTime @updatedAt
+}
+
+model SupplierWholesaleOverride {
+  supplierId    String   @id
+  wholesaleRate Decimal  @default(70) @db.Decimal(5, 2)
+  updatedAt     DateTime @updatedAt
+}

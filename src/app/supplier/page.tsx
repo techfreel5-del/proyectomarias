@@ -12,7 +12,7 @@ import {
   getOrders, fetchOrders, subscribeOrders, LocalOrder,
   STATUS_LABELS, STATUS_COLORS,
 } from '@/lib/orders-store';
-import { getSupplierWholesaleRate } from '@/lib/pricing-store';
+import { getSupplierWholesaleRate, loadPricing } from '@/lib/pricing-store';
 
 export default function SupplierDashboard() {
   const { inventory, profile, lowStockCount } = useSupplier();
@@ -35,7 +35,13 @@ export default function SupplierDashboard() {
   const lowStock = inventory.filter((p) => p.active && p.stock <= p.lowStockThreshold);
 
   const supplierId = user?.supplierId ?? '';
-  const wholesaleRate = getSupplierWholesaleRate(supplierId);
+  const [wholesaleRate, setWholesaleRate] = useState(() => getSupplierWholesaleRate(supplierId));
+  useEffect(() => {
+    if (!supplierId) return;
+    loadPricing().then((data) => {
+      setWholesaleRate(data.suppliers[supplierId]?.wholesaleRate ?? 70);
+    });
+  }, [supplierId]);
 
   /* ── Separar pedidos ────────────────────────────────────── */
   // Pedidos de MariasClub: tienen supplierPackages y el paquete pertenece a este proveedor

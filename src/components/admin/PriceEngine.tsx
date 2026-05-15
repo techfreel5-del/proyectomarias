@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { Lock, RotateCcw, ChevronDown, ChevronRight, Eye, EyeOff, Check } from 'lucide-react';
 import { products as catalogProducts } from '@/lib/mock-data';
 import {
-  getPricing, setProductPrice, applySupplierBulkAdjustment,
-  resetSupplierPrices, setSupplierWholesaleRate, getSupplierWholesaleRate,
+  loadPricing, setProductPrice, applySupplierBulkAdjustment,
+  resetSupplierPrices, setSupplierWholesaleRate,
   PricingData,
 } from '@/lib/pricing-store';
 
@@ -14,6 +14,11 @@ const SUPPLIERS = [
   { id: 'fashion-hogar-zamora',  name: 'Moda & Hogar Zamora' },
   { id: 'deportes-tech-zamora',  name: 'Deportes & Tech Zamora' },
 ];
+
+const DEFAULT_WHOLESALE_RATES: Record<string, number> = {
+  'fashion-hogar-zamora': 70,
+  'deportes-tech-zamora': 70,
+};
 
 function pct(effective: number, base: number): string {
   if (base === 0) return '—';
@@ -38,9 +43,10 @@ export function PriceEngine() {
   );
   const [showWholesale, setShowWholesale] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const reload = useCallback(() => {
-    const data = getPricing();
+  const reload = useCallback(async () => {
+    const data = await loadPricing();
     setPricing(data);
     // Inicializar inputs con precios actuales
     const ep: Record<string, string> = {};
@@ -51,53 +57,61 @@ export function PriceEngine() {
     // Inicializar inputs de mayoreo
     const wi: Record<string, string> = {};
     for (const s of SUPPLIERS) {
-      wi[s.id] = String(
-        data.suppliers[s.id]?.wholesaleRate ?? getSupplierWholesaleRate(s.id),
-      );
+      wi[s.id] = String(data.suppliers[s.id]?.wholesaleRate ?? DEFAULT_WHOLESALE_RATES[s.id] ?? 70);
     }
     setWholesaleInputs(wi);
+    setLoading(false);
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
 
   /* Guardar precio individual */
-  const saveProductPrice = (productId: string) => {
+  const saveProductPrice = async (productId: string) => {
     const val = parseFloat(editPrices[productId]);
     if (isNaN(val) || val < 0) return;
-    setProductPrice(productId, val);
+    await setProductPrice(productId, val);
     setSaved(productId);
     setTimeout(() => setSaved(null), 1500);
     reload();
   };
 
   /* Ajuste masivo por proveedor */
-  const applyBulk = (supplierId: string) => {
-    const pct = parseFloat(bulkPct[supplierId] ?? '0');
-    if (isNaN(pct)) return;
+  const applyBulk = async (supplierId: string) => {
+    const pctVal = parseFloat(bulkPct[supplierId] ?? '0');
+    if (isNaN(pctVal)) return;
     const supplierProducts = catalogProducts
       .filter((p) => p.supplierId === supplierId)
       .map((p) => ({ id: p.id, basePrice: p.price }));
-    applySupplierBulkAdjustment(supplierProducts, pct);
+    await applySupplierBulkAdjustment(supplierProducts, pctVal);
     setBulkPct((prev) => ({ ...prev, [supplierId]: '' }));
     reload();
   };
 
   /* Resetear precios de un proveedor */
-  const resetSupplier = (supplierId: string) => {
+  const resetSupplier = async (supplierId: string) => {
     const ids = catalogProducts.filter((p) => p.supplierId === supplierId).map((p) => p.id);
-    resetSupplierPrices(ids);
+    await resetSupplierPrices(ids);
     reload();
   };
 
   /* Guardar tarifa de mayoreo */
-  const saveWholesaleRate = (supplierId: string) => {
+  const saveWholesaleRate = async (supplierId: string) => {
     const val = parseFloat(wholesaleInputs[supplierId]);
     if (isNaN(val)) return;
-    setSupplierWholesaleRate(supplierId, val);
+    await setSupplierWholesaleRate(supplierId, val);
     setSaved(`wholesale-${supplierId}`);
     setTimeout(() => setSaved(null), 1500);
     reload();
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="w-6 h-6 border-2 border-[#00C9B1] border-t-transparent rounded-full animate-spin" />
+        <span className="ml-3 text-sm text-[#8F8780] font-body">Cargando precios...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -312,8 +326,7 @@ export function PriceEngine() {
       })}
 
       <p className="text-[10px] text-[#8F8780] font-body text-center">
-        Los cambios se guardan automáticamente al confirmar cada campo.
-        En Phase 2 estos precios se sincronizarán con la base de datos en tiempo real.
+        Los cambios se guardan automáticamente en la base de datos y se reflejan en todos los dispositivos.
       </p>
     </div>
   );
