@@ -78,12 +78,28 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
       setHydrated(true);
       return;
     }
-    fetch(`/api/admin/suppliers/${supplierId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data) {
-          // Map DB inventory format → InventoryProduct
-          const inv: InventoryProduct[] = (data.inventory ?? []).map((p: {
+
+    // Cargar perfil completo e inventario en paralelo
+    Promise.all([
+      fetch('/api/supplier/profile').then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/admin/suppliers/${supplierId}`).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([profileData, supplierData]) => {
+        // Perfil completo desde DB
+        if (profileData) {
+          setProfile((prev) => ({
+            ...prev,
+            ...profileData,
+            storeConfig: {
+              ...prev.storeConfig,
+              ...profileData.storeConfig,
+            },
+          }));
+        }
+
+        // Inventario desde DB
+        if (supplierData?.inventory) {
+          const inv: InventoryProduct[] = supplierData.inventory.map((p: {
             id: string; sku?: string; name: string; category?: string; price: number;
             stock: number; image?: string; images?: string[]; description?: string;
             active: boolean; lowStockThreshold?: number; pendingApproval?: boolean;
@@ -107,16 +123,6 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
             variants: (p.variants ?? []) as InventoryProduct['variants'],
           }));
           setInventory(inv);
-
-          // Merge profile from DB supplier data
-          if (data.profile) {
-            setProfile((prev) => ({
-              ...prev,
-              storeName: data.profile.storeName ?? prev.storeName,
-              brandColor: data.profile.brandColor ?? prev.brandColor,
-              slug: data.profile.slug ?? prev.slug,
-            }));
-          }
         }
       })
       .catch(() => { /* silently keep fallback */ })
