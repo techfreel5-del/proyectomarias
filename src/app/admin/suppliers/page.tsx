@@ -1,19 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Users, Plus, Package, DollarSign, ChevronRight,
   CheckCircle2, XCircle, Eye, EyeOff, Store,
 } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import {
-  getSuppliers, createSupplier, setSupplierActive,
-  type SupplierRecord,
-} from '@/lib/suppliers-store';
+
+interface SupplierListItem {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: string;
+  active: boolean;
+  profile: { storeName: string; brandColor: string; slug: string };
+  productCount: number;
+  lowStockCount: number;
+  inventoryValue: number;
+}
 
 export default function AdminSuppliersPage() {
-  const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierListItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,20 +36,29 @@ export default function AdminSuppliersPage() {
     brandColor: '#1E3A5F',
   });
 
-  useEffect(() => {
-    setSuppliers(getSuppliers());
+  const loadSuppliers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/suppliers');
+      if (res.ok) setSuppliers(await res.json());
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  function refresh() {
-    setSuppliers(getSuppliers());
+  useEffect(() => { loadSuppliers(); }, [loadSuppliers]);
+
+  async function handleToggleActive(id: string, current: boolean) {
+    await fetch(`/api/admin/suppliers/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !current }),
+    });
+    setSuppliers((prev) =>
+      prev.map((s) => s.id === id ? { ...s, active: !current } : s),
+    );
   }
 
-  function handleToggleActive(id: string, current: boolean) {
-    setSupplierActive(id, !current);
-    refresh();
-  }
-
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setFormError('');
 
@@ -52,35 +70,31 @@ export default function AdminSuppliersPage() {
       setFormError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
-    const existing = getSuppliers().find(
-      (s) => s.email.toLowerCase() === form.email.toLowerCase(),
-    );
-    if (existing) {
-      setFormError('Ya existe un proveedor con ese correo.');
-      return;
-    }
 
     setSaving(true);
-    createSupplier({
-      displayName: form.displayName,
-      storeName: form.storeName,
-      email: form.email,
-      password: form.password,
-      brandColor: form.brandColor,
-    });
-    setForm({ displayName: '', storeName: '', email: '', password: '', brandColor: '#1E3A5F' });
-    setShowForm(false);
-    setSaving(false);
-    refresh();
+    try {
+      const res = await fetch('/api/admin/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(data.error ?? 'Error al crear el proveedor.');
+        return;
+      }
+      setForm({ displayName: '', storeName: '', email: '', password: '', brandColor: '#1E3A5F' });
+      setShowForm(false);
+      loadSuppliers();
+    } finally {
+      setSaving(false);
+    }
   }
 
   /* ── Métricas globales ──────────────────────────────── */
-  const totalProducts = suppliers.reduce((s, r) => s + r.inventory.length, 0);
-  const totalValue = suppliers.reduce(
-    (s, r) => s + r.inventory.reduce((sv, p) => sv + p.price * p.stock, 0),
-    0,
-  );
-  const activeCount = suppliers.filter((s) => s.active).length;
+  const totalProducts  = suppliers.reduce((s, r) => s + r.productCount, 0);
+  const totalValue     = suppliers.reduce((s, r) => s + r.inventoryValue, 0);
+  const activeCount    = suppliers.filter((s) => s.active).length;
 
   const fmt = (n: number) =>
     n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -111,9 +125,9 @@ export default function AdminSuppliersPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Total proveedores', value: suppliers.length, icon: Users, color: '#3B82F6' },
-            { label: 'Proveedores activos', value: activeCount, icon: CheckCircle2, color: '#10B981' },
-            { label: 'Total productos', value: totalProducts, icon: Package, color: '#8B5CF6' },
+            { label: 'Total proveedores',  value: suppliers.length, icon: Users,       color: '#3B82F6' },
+            { label: 'Proveedores activos', value: activeCount,      icon: CheckCircle2, color: '#10B981' },
+            { label: 'Total productos',    value: totalProducts,    icon: Package,     color: '#8B5CF6' },
             { label: 'Valor total inventario', value: `$${fmt(totalValue)}`, icon: DollarSign, color: '#F59E0B' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="bg-white border border-[#EDEBE8] rounded-xl p-4">
@@ -135,6 +149,9 @@ export default function AdminSuppliersPage() {
               <Store className="h-4 w-4 text-[#00C9B1]" />
               Dar de alta nuevo proveedor
             </h2>
+            <p className="text-xs text-[#8F8780] font-body mb-4">
+              El proveedor podrá iniciar sesión en <strong>/login</strong> con el correo y contraseña que indiques aquí.
+            </p>
             <form onSubmit={handleCreate} className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-1.5">
@@ -242,7 +259,12 @@ export default function AdminSuppliersPage() {
             </span>
           </div>
 
-          {suppliers.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-14 gap-3 text-[#8F8780] font-body text-sm">
+              <div className="w-5 h-5 border-2 border-[#00C9B1] border-t-transparent rounded-full animate-spin" />
+              Cargando proveedores...
+            </div>
+          ) : suppliers.length === 0 ? (
             <div className="text-center py-14 text-[#8F8780] font-body text-sm">
               <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
               Sin proveedores registrados aún
@@ -260,69 +282,65 @@ export default function AdminSuppliersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F7F6F5]">
-                  {suppliers.map((s) => {
-                    const totalStock = s.inventory.reduce((acc, p) => acc + p.price * p.stock, 0);
-                    const lowStock = s.inventory.filter((p) => p.active && p.stock <= p.lowStockThreshold).length;
-                    return (
-                      <tr key={s.id} className="hover:bg-[#FAFAFA] transition-colors">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: s.profile.brandColor }}
-                            >
-                              <span className="text-white text-xs font-bold">
-                                {s.profile.storeName.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-semibold text-[#0A0A0A]">{s.profile.storeName}</p>
-                              <p className="text-[10px] text-[#8F8780] font-body">
-                                {s.displayName} · Alta {new Date(s.createdAt).toLocaleDateString('es-MX')}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-[#6B6359] font-body">{s.email}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-[#0A0A0A]">{s.inventory.length}</span>
-                            {lowStock > 0 && (
-                              <span className="text-[9px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
-                                {lowStock} bajo stock
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 font-semibold text-[#0A0A0A]">
-                          ${fmt(totalStock)}
-                        </td>
-                        <td className="px-5 py-4">
-                          <button
-                            onClick={() => handleToggleActive(s.id, s.active)}
-                            className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all ${
-                              s.active
-                                ? 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100'
-                                : 'text-[#8F8780] bg-[#F7F6F5] border-[#EDEBE8] hover:bg-[#EDEBE8]'
-                            }`}
+                  {suppliers.map((s) => (
+                    <tr key={s.id} className="hover:bg-[#FAFAFA] transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: s.profile.brandColor }}
                           >
-                            {s.active
-                              ? <><CheckCircle2 className="h-3 w-3" /> Activo</>
-                              : <><XCircle className="h-3 w-3" /> Inactivo</>}
-                          </button>
-                        </td>
-                        <td className="px-5 py-4">
-                          <Link
-                            href={`/admin/suppliers/${s.id}`}
-                            className="flex items-center gap-1 text-xs font-semibold text-[#3B82F6] hover:text-[#1D4ED8] transition-colors"
-                          >
-                            Ver inventario
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <span className="text-white text-xs font-bold">
+                              {s.profile.storeName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-[#0A0A0A]">{s.profile.storeName}</p>
+                            <p className="text-[10px] text-[#8F8780] font-body">
+                              {s.displayName} · Alta {new Date(s.createdAt).toLocaleDateString('es-MX')}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-[#6B6359] font-body">{s.email}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-[#0A0A0A]">{s.productCount}</span>
+                          {s.lowStockCount > 0 && (
+                            <span className="text-[9px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+                              {s.lowStockCount} bajo stock
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 font-semibold text-[#0A0A0A]">
+                        ${fmt(s.inventoryValue)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => handleToggleActive(s.id, s.active)}
+                          className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all ${
+                            s.active
+                              ? 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100'
+                              : 'text-[#8F8780] bg-[#F7F6F5] border-[#EDEBE8] hover:bg-[#EDEBE8]'
+                          }`}
+                        >
+                          {s.active
+                            ? <><CheckCircle2 className="h-3 w-3" /> Activo</>
+                            : <><XCircle className="h-3 w-3" /> Inactivo</>}
+                        </button>
+                      </td>
+                      <td className="px-5 py-4">
+                        <Link
+                          href={`/admin/suppliers/${s.id}`}
+                          className="flex items-center gap-1 text-xs font-semibold text-[#3B82F6] hover:text-[#1D4ED8] transition-colors"
+                        >
+                          Ver inventario
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
