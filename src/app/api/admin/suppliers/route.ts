@@ -95,7 +95,9 @@ export async function POST(req: NextRequest) {
               description: '',
               wholesaleRate: 70,
               shippingMethods: [
-                { type: 'pickup', label: 'Recoger en tienda', cost: 0, active: true },
+                { type: 'pickup', label: 'Recoger en tienda', cost: 0, enabled: true, description: 'El cliente pasa a recoger su pedido en la tienda' },
+                { type: 'paqueteria', label: 'Paquetería', cost: 0, enabled: false, description: 'Envío a domicilio', zonedPricing: { local: 80, regional: 120, centro: 160, lejano: 200 } },
+                { type: 'rappi', label: 'Rappi / mensajero', cost: 0, enabled: false, description: 'Entrega por Rappi o mensajero local' },
               ],
               bankInfo: {},
             },
