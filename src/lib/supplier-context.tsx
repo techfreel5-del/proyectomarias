@@ -130,7 +130,16 @@ export function SupplierProvider({ children }: { children: React.ReactNode }) {
   }, [profile, hydrated, supplierId]);
 
   const updateProfile = useCallback((patch: Partial<SupplierProfile>) => {
-    setProfile((prev) => ({ ...prev, ...patch }));
+    setProfile((prev) => {
+      const next = { ...prev, ...patch };
+      // Persistir en DB de forma asíncrona
+      fetch('/api/supplier/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      }).catch(() => { /* silencioso — la UI ya se actualizó */ });
+      return next;
+    });
   }, []);
 
   const addProduct = useCallback(async (product: Omit<InventoryProduct, 'id'>) => {
