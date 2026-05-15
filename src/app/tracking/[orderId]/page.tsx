@@ -13,13 +13,12 @@ export default function TrackingPage() {
   const [localOrder, setLocalOrder] = useState<LocalOrder | null | undefined>(undefined);
 
   useEffect(() => {
-    const cached = getOrder(orderId);
-    if (cached) { setLocalOrder(cached); return; }
-    // Not in cache — try API (orders from BD or another device)
+    // Siempre buscar en la DB primero para ver el estado más reciente.
+    // GET /api/orders/[id] es público — no requiere autenticación.
     fetch(`/api/orders/${orderId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setLocalOrder(data ?? null))
-      .catch(() => setLocalOrder(null));
+      .then((data) => setLocalOrder(data ?? getOrder(orderId) ?? null))
+      .catch(() => setLocalOrder(getOrder(orderId) ?? null));
   }, [orderId]);
 
   // Still loading
