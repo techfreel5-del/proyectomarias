@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { use } from 'react';
 import {
@@ -9,9 +9,23 @@ import {
   Pencil, Video, X, Save,
 } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { getSupplier, updateSupplierInventory, type SupplierRecord, type InventoryProduct } from '@/lib/suppliers-store';
+import type { InventoryProduct } from '@/lib/suppliers-store';
 
 const PAGE_SIZE = 15;
+
+interface SupplierDetail {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: string;
+  active: boolean;
+  profile: {
+    storeName: string;
+    brandColor: string;
+    slug: string;
+  };
+  inventory: InventoryProduct[];
+}
 
 export default function AdminSupplierDetailPage({
   params,
@@ -19,45 +33,64 @@ export default function AdminSupplierDetailPage({
   params: Promise<{ supplierId: string }>;
 }) {
   const { supplierId } = use(params);
-  const [record, setRecord] = useState<SupplierRecord | null>(null);
+  const [detail, setDetail] = useState<SupplierDetail | null>(null);
+  const [inventory, setInventory] = useState<InventoryProduct[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   // ── Edición de producto ───────────────────────────────────────
   const [editing, setEditing] = useState<InventoryProduct | null>(null);
   const [editForm, setEditForm] = useState<Partial<InventoryProduct>>({});
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const r = getSupplier(supplierId);
-    setRecord(r ?? null);
+  const loadDetail = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/suppliers/${supplierId}`);
+      if (!res.ok) throw new Error('not found');
+      const data: SupplierDetail = await res.json();
+      setDetail(data);
+      setInventory(data.inventory);
+    } catch {
+      setDetail(null);
+    } finally {
+      setLoading(false);
+    }
   }, [supplierId]);
 
-  // ── Aprobación de productos pendientes ──────────────────────────
-  function handleApprove(productId: string) {
-    if (!record) return;
-    const updated = record.inventory.map((p) =>
-      p.id === productId ? { ...p, pendingApproval: false, active: true } : p,
-    );
-    updateSupplierInventory(supplierId, updated);
-    setRecord({ ...record, inventory: updated });
+  useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  // ── Llamada PATCH al producto ─────────────────────────────────
+  async function patchProduct(productId: string, patch: Partial<InventoryProduct>) {
+    await fetch(`/api/admin/suppliers/${supplierId}/products/${productId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
   }
 
-  function handleReject(productId: string) {
-    if (!record) return;
-    const updated = record.inventory.map((p) =>
-      p.id === productId ? { ...p, pendingApproval: false, active: false } : p,
+  // ── Aprobación ───────────────────────────────────────────────
+  async function handleApprove(productId: string) {
+    await patchProduct(productId, { pendingApproval: false, active: true });
+    setInventory((inv) =>
+      inv.map((p) => p.id === productId ? { ...p, pendingApproval: false, active: true } : p),
     );
-    updateSupplierInventory(supplierId, updated);
-    setRecord({ ...record, inventory: updated });
   }
 
-  function handleApproveAll() {
-    if (!record) return;
-    const updated = record.inventory.map((p) =>
-      p.pendingApproval ? { ...p, pendingApproval: false, active: true } : p,
+  async function handleReject(productId: string) {
+    await patchProduct(productId, { pendingApproval: false, active: false });
+    setInventory((inv) =>
+      inv.map((p) => p.id === productId ? { ...p, pendingApproval: false, active: false } : p),
     );
-    updateSupplierInventory(supplierId, updated);
-    setRecord({ ...record, inventory: updated });
+  }
+
+  async function handleApproveAll() {
+    const pending = inventory.filter((p) => p.pendingApproval);
+    await Promise.all(pending.map((p) => patchProduct(p.id, { pendingApproval: false, active: true })));
+    setInventory((inv) =>
+      inv.map((p) => p.pendingApproval ? { ...p, pendingApproval: false, active: true } : p),
+    );
   }
 
   function openEdit(p: InventoryProduct) {
@@ -65,17 +98,34 @@ export default function AdminSupplierDetailPage({
     setEditForm({ ...p });
   }
 
-  function handleSaveEdit() {
-    if (!record || !editing) return;
-    const updated = record.inventory.map((p) =>
-      p.id === editing.id ? { ...p, ...editForm } : p,
-    );
-    updateSupplierInventory(supplierId, updated);
-    setRecord({ ...record, inventory: updated });
-    setEditing(null);
+  async function handleSaveEdit() {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      await patchProduct(editing.id, editForm);
+      setInventory((inv) =>
+        inv.map((p) => p.id === editing.id ? { ...p, ...editForm } : p),
+      );
+      setEditing(null);
+    } finally {
+      setSaving(false);
+    }
   }
 
-  if (!record) {
+  // ── Estados de carga / error ──────────────────────────────────
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex">
+        <AdminSidebar />
+        <main className="flex-1 lg:ml-56 px-8 py-16 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-[#00C9B1] border-t-transparent rounded-full animate-spin" />
+          <span className="ml-3 text-sm text-[#8F8780] font-body">Cargando inventario...</span>
+        </main>
+      </div>
+    );
+  }
+
+  if (!detail) {
     return (
       <div className="min-h-screen bg-[#FAFAFA] flex">
         <AdminSidebar />
@@ -88,7 +138,7 @@ export default function AdminSupplierDetailPage({
     );
   }
 
-  const { profile, inventory } = record;
+  const { profile } = detail;
 
   /* ── Pendientes ──────────────────────────────────── */
   const pendingProducts = inventory.filter((p) => p.pendingApproval);
@@ -151,8 +201,8 @@ export default function AdminSupplierDetailPage({
             <div>
               <h1 className="font-display text-2xl font-black text-[#0A0A0A]">{profile.storeName}</h1>
               <p className="text-xs text-[#8F8780] font-body">
-                {record.email} · Alta {new Date(record.createdAt).toLocaleDateString('es-MX')}
-                {!record.active && (
+                {detail.email} · Alta {new Date(detail.createdAt).toLocaleDateString('es-MX')}
+                {!detail.active && (
                   <span className="ml-2 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
                     Inactivo
                   </span>
@@ -214,7 +264,7 @@ export default function AdminSupplierDetailPage({
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#0A0A0A] text-sm truncate">{p.name}</p>
-                    <p className="text-xs text-[#8F8780] font-body">{p.sku} · {p.category} · costo ${fmtPrice(p.price)}</p>
+                    <p className="text-xs text-[#8F8780] font-body">{p.sku} · {p.category} · ${fmtPrice(p.price)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
@@ -408,7 +458,7 @@ export default function AdminSupplierDetailPage({
               {/* Precio + Stock */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-1.5">Precio costo ($)</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#555] mb-1.5">Precio ($)</label>
                   <input
                     type="number"
                     min="0"
@@ -450,21 +500,14 @@ export default function AdminSupplierDetailPage({
                 <input
                   type="url"
                   value={editForm.videoUrl ?? ''}
-                  onChange={(e) => setEditForm((f) => ({ ...f, videoUrl: e.target.value, videoFile: '' }))}
+                  onChange={(e) => setEditForm((f) => ({ ...f, videoUrl: e.target.value }))}
                   placeholder="https://youtube.com/watch?v=... o enlace directo .mp4"
                   className="w-full h-10 border border-[#E0E0E0] px-3 text-sm text-[#0A0A0A] rounded-lg focus:outline-none focus:border-[#0A0A0A] transition-colors"
                 />
-                <div className="mt-2 flex items-start gap-2 bg-[#F7F6F5] rounded-lg px-3 py-2.5">
-                  <Video className="h-3.5 w-3.5 text-[#8F8780] flex-shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-[#8F8780] font-body leading-relaxed">
-                    Compatible con <strong>YouTube</strong>, <strong>Vimeo</strong> y enlace directo a <strong>.mp4</strong>.
-                    Para subir un video propio, súbelo a YouTube o Vimeo y pega el enlace aquí.
-                  </p>
-                </div>
                 {editForm.videoUrl && (
                   <button
                     type="button"
-                    onClick={() => setEditForm((f) => ({ ...f, videoUrl: '', videoFile: '' }))}
+                    onClick={() => setEditForm((f) => ({ ...f, videoUrl: '' }))}
                     className="mt-2 text-[11px] text-red-500 hover:text-red-700 font-semibold"
                   >
                     × Quitar video
@@ -477,16 +520,18 @@ export default function AdminSupplierDetailPage({
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#F7F6F5]">
               <button
                 onClick={() => setEditing(null)}
-                className="px-4 py-2 text-sm font-semibold text-[#6B6359] hover:text-[#0A0A0A] transition-colors"
+                disabled={saving}
+                className="px-4 py-2 text-sm font-semibold text-[#6B6359] hover:text-[#0A0A0A] transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="flex items-center gap-2 px-5 py-2 bg-[#0A0A0A] text-white text-sm font-semibold rounded-xl hover:bg-[#222] transition-colors"
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2 bg-[#0A0A0A] text-white text-sm font-semibold rounded-xl hover:bg-[#222] transition-colors disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />
-                Guardar cambios
+                {saving ? 'Guardando...' : 'Guardar cambios'}
               </button>
             </div>
 
